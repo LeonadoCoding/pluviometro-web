@@ -19,30 +19,8 @@ create table if not exists public.pluviometro_admins (
 
 alter table public.rain_records enable row level security;
 alter table public.pluviometro_admins enable row level security;
-
-drop policy if exists "Authenticated users can read rain records" on public.rain_records;
-create policy "Authenticated users can read rain records"
-  on public.rain_records for select to authenticated using (true);
-
-drop policy if exists "Admins can insert rain records" on public.rain_records;
-create policy "Admins can insert rain records"
-  on public.rain_records for insert to authenticated
-  with check (exists (select 1 from public.pluviometro_admins a where a.user_id = (select auth.uid())));
-
-drop policy if exists "Admins can update rain records" on public.rain_records;
-create policy "Admins can update rain records"
-  on public.rain_records for update to authenticated
-  using (exists (select 1 from public.pluviometro_admins a where a.user_id = (select auth.uid())))
-  with check (exists (select 1 from public.pluviometro_admins a where a.user_id = (select auth.uid())));
-
-drop policy if exists "Admins can delete rain records" on public.rain_records;
-create policy "Admins can delete rain records"
-  on public.rain_records for delete to authenticated
-  using (exists (select 1 from public.pluviometro_admins a where a.user_id = (select auth.uid())));
-
 revoke all on public.pluviometro_admins from anon, authenticated;
 grant select, insert, update, delete on public.rain_records to authenticated;
-grant execute on function public.is_pluviometro_admin() to authenticated;
 
 create or replace function public.is_pluviometro_admin()
 returns boolean
@@ -56,6 +34,28 @@ as $$
     where a.user_id = (select auth.uid())
   );
 $$;
+revoke all on function public.is_pluviometro_admin() from public, anon;
+grant execute on function public.is_pluviometro_admin() to authenticated;
+
+drop policy if exists "Authenticated users can read rain records" on public.rain_records;
+create policy "Authenticated users can read rain records"
+  on public.rain_records for select to authenticated using (true);
+
+drop policy if exists "Admins can insert rain records" on public.rain_records;
+create policy "Admins can insert rain records"
+  on public.rain_records for insert to authenticated
+  with check ((select public.is_pluviometro_admin()));
+
+drop policy if exists "Admins can update rain records" on public.rain_records;
+create policy "Admins can update rain records"
+  on public.rain_records for update to authenticated
+  using ((select public.is_pluviometro_admin()))
+  with check ((select public.is_pluviometro_admin()));
+
+drop policy if exists "Admins can delete rain records" on public.rain_records;
+create policy "Admins can delete rain records"
+  on public.rain_records for delete to authenticated
+  using ((select public.is_pluviometro_admin()));
 
 -- Depois de criar seu usuário em Authentication > Users, rode:
 -- substitua pelo UUID e e-mail reais exibidos no painel Supabase.
