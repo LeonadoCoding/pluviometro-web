@@ -3,7 +3,7 @@ import { CloudRain, Lock, User, KeyRound, Check, Eye, EyeOff, ShieldAlert, Sun, 
 import { loginUser } from '../services/auth';
 
 export default function LoginScreen({ onLoginSuccess, theme, onToggleTheme }) {
-  const [username, setUsername] = useState('admin');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -89,10 +89,11 @@ export default function LoginScreen({ onLoginSuccess, theme, onToggleTheme }) {
             <div>
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
                 <User className="w-3.5 h-3.5 text-rain-500" />
-                Usuário
+                E-mail
               </label>
               <input
-                type="text"
+                type="email"
+                autoComplete="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
@@ -112,7 +113,7 @@ export default function LoginScreen({ onLoginSuccess, theme, onToggleTheme }) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  placeholder="••••••••"
+                  placeholder="Sua senha"
                   className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-rain-500 pr-10 transition"
                 />
                 <button
