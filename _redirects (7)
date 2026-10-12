@@ -1,0 +1,3 @@
+/api/auth/:action   /.netlify/functions/auth/:action   200
+/api/*   /index.html   404
+/*       /index.html   200

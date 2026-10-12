@@ -1,0 +1,20 @@
+services:
+  pluviometro:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pluviometro-oilema:latest
+    container_name: pluviometro-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - pluviometro_data:/app/data
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATA_DIR=/app/data
+
+volumes:
+  pluviometro_data:
+    driver: local

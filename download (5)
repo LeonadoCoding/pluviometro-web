@@ -1,0 +1,26 @@
+# Dependencies and build output
+node_modules/
+**/node_modules/
+client/dist/
+coverage/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.secret
+
+# Runtime data
+server/data/
+*.db
+*.sqlite
+*.sqlite3
+*.log
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

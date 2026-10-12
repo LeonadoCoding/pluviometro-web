@@ -1,0 +1,19 @@
+{
+  "name": "pluviometro-server",
+  "version": "1.0.0",
+  "description": "Backend API para Registro e Análise Pluviométrica - UBS Sementes Oilema",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "express-rate-limit": "^8.7.0",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3"
+  }
+}
