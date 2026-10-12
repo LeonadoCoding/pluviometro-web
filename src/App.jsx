@@ -287,7 +287,7 @@ export default function App() {
 
       {/* Footer */}
       <footer className="border-t border-slate-200 dark:border-slate-800/80 py-4 text-center text-xs text-slate-500">
-        <p>Pluviômetro Web • UBS Sementes Oilema • Barreiras/BA • Suporte a VPS & Netlify</p>
+        <p>Pluviômetro Web • UBS Sementes Oilema • Barreiras/BA • Hospedado no GitHub Pages • Banco Supabase</p>
       </footer>
 
       {/* Modal de Entrada Diária Ágil */}
