@@ -97,7 +97,7 @@ export default function BackupModal({ isOpen, onClose, onDataChanged, isLocalMod
             <div>
               <h3 className="text-base font-bold text-slate-900 dark:text-white">Backup e Gerenciamento</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                {isLocalMode ? 'Modo Navegador / Netlify' : 'Modo VPS / SQLite'}
+                {isLocalMode ? 'Modo local do navegador' : 'Supabase / PostgreSQL'}
               </p>
             </div>
           </div>
