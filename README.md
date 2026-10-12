@@ -80,7 +80,7 @@ node src/server.js
 
 ---
 
-## 🌐 Deploy no Netlify
+## 🌐 Deploy no GitHub Pages + Supabase\n\nSiga o guia completo em [`SUPABASE_SETUP.md`](./SUPABASE_SETUP.md). Configure as variáveis `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` em **Settings → Secrets and variables → Actions → Variables**. O workflow constrói e publica a aplicação no GitHub Pages. O Supabase precisa estar configurado e a conta administradora cadastrada antes do primeiro acesso.\n\n## 🌐 Deploy no Netlify (legado)
 
 O repositório já inclui o arquivo `netlify.toml` pré-configurado.
 
