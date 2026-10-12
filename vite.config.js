@@ -2,7 +2,8 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
-  base: '/',
+  // GitHub Pages serves this project from /pluviometro-web/, not the domain root.
+  base: '/pluviometro-web/',
   plugins: [react()],
   server: {
     port: 5173,
