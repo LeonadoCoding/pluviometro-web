@@ -51,3 +51,72 @@ drop policy if exists "Admins can read notification log" on public.notification_
 create policy "Admins can read notification log"
   on public.notification_log for select to authenticated
   using ((select public.is_pluviometro_admin()));
+
+-- ---------------------------------------------------------------------------
+-- Disparo automático: gatilho em rain_records → Edge Function notify-rain
+-- ---------------------------------------------------------------------------
+create extension if not exists pg_net with schema extensions;
+
+-- Segredo compartilhado entre o gatilho e a função, gerado e guardado no Vault (ninguém precisa copiá-lo)
+do $$
+begin
+  if not exists (select 1 from vault.secrets where name = 'notify_rain_webhook_secret') then
+    perform vault.create_secret(encode(extensions.gen_random_bytes(32), 'hex'), 'notify_rain_webhook_secret',
+      'Segredo do gatilho de avisos de chuva (notify-rain)');
+  end if;
+end $$;
+
+-- Usada pela Edge Function para validar o cabeçalho recebido; só a chave de serviço pode executá-la
+create or replace function public.verify_notify_rain_secret(candidate text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from vault.decrypted_secrets
+    where name = 'notify_rain_webhook_secret' and decrypted_secret = candidate
+  );
+$$;
+revoke all on function public.verify_notify_rain_secret(text) from public, anon, authenticated;
+grant execute on function public.verify_notify_rain_secret(text) to service_role;
+
+create or replace function public.notify_rain_after_write()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  secret text;
+begin
+  -- Leituras com mais de 60 dias (importações de backup) nem chamam a função
+  if new.date < (now() at time zone 'America/Bahia')::date - 60 then
+    return new;
+  end if;
+  select decrypted_secret into secret from vault.decrypted_secrets where name = 'notify_rain_webhook_secret';
+  if secret is null then
+    return new;
+  end if;
+  perform net.http_post(
+    url := 'https://vnsnolwciccklwlpnoui.supabase.co/functions/v1/notify-rain',
+    body := jsonb_build_object(
+      'type', tg_op,
+      'table', tg_table_name,
+      'schema', tg_table_schema,
+      'record', to_jsonb(new),
+      'old_record', case when tg_op = 'UPDATE' then to_jsonb(old) end
+    ),
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-webhook-secret', secret),
+    timeout_milliseconds := 5000
+  );
+  return new;
+end;
+$$;
+revoke all on function public.notify_rain_after_write() from public, anon, authenticated;
+
+drop trigger if exists notify_rain_after_write on public.rain_records;
+create trigger notify_rain_after_write
+  after insert or update on public.rain_records
+  for each row execute function public.notify_rain_after_write();
