@@ -11,12 +11,19 @@ import {
 } from 'recharts';
 import { GitCompare } from 'lucide-react';
 
+// Cores derivadas da paleta Oilema
 const SAFRA_COLORS = {
-  '2022/2023': '#f59e0b', // Amber
-  '2023/2024': '#10b981', // Emerald
-  '2024/2025': '#6366f1', // Indigo
-  '2025/2026': '#ec4899', // Pink
-  '2026/2027': '#0284c7'  // Sky/Cyan (Safra Atual)
+  '2022/2023': '#D97E4A', // Argila
+  '2023/2024': '#6F9AA6', // Petróleo claro
+  '2024/2025': '#7A9A5B', // Verde campo
+  '2025/2026': '#385059', // Petróleo
+  '2026/2027': '#F28322'  // Laranja Oilema (Safra Atual)
+};
+
+// Petróleo escuro some no fundo escuro: usa um tom mais claro nesse tema
+const getSafraColor = (safra, isDark) => {
+  const color = SAFRA_COLORS[safra] || '#8DA0A7';
+  return isDark && color === '#385059' ? '#A3B9C0' : color;
 };
 
 export default function HistoricalComparisonChart({
@@ -74,8 +81,8 @@ export default function HistoricalComparisonChart({
     return null;
   };
 
-  const gridColor = isDark ? '#1e293b' : '#e2e8f0';
-  const axisColor = isDark ? '#64748b' : '#94a3b8';
+  const gridColor = isDark ? '#273B43' : '#DCE3E5';
+  const axisColor = isDark ? '#8DA0A7' : '#627880';
 
   return (
     <div id="chart-historical-card" className="glass-panel rounded-2xl p-4 sm:p-6 relative transition-colors">
@@ -120,7 +127,7 @@ export default function HistoricalComparisonChart({
         <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mr-1">Exibir:</span>
         {availableSafras.map((s) => {
           const isActive = activeSafras[s] !== false;
-          const color = SAFRA_COLORS[s] || '#94a3b8';
+          const color = getSafraColor(s, isDark);
           return (
             <button
               key={s}
@@ -177,7 +184,7 @@ export default function HistoricalComparisonChart({
             {availableSafras.map((s) => {
               if (activeSafras[s] === false) return null;
               const isCurrent = s === currentSafra;
-              const color = SAFRA_COLORS[s] || '#94a3b8';
+              const color = getSafraColor(s, isDark);
               const key = `${s}_${metricType}`;
 
               return (
@@ -189,7 +196,7 @@ export default function HistoricalComparisonChart({
                   stroke={color}
                   strokeWidth={isCurrent ? 3.5 : 2}
                   strokeDasharray={isCurrent ? undefined : (s === '2022/2023' ? '4 4' : undefined)}
-                  dot={isCurrent ? { r: 4, fill: color, stroke: isDark ? '#082f49' : '#ffffff', strokeWidth: 2 } : { r: 2.5 }}
+                  dot={isCurrent ? { r: 4, fill: color, stroke: isDark ? '#1A2B31' : '#FCFCFC', strokeWidth: 2 } : { r: 2.5 }}
                   activeDot={{ r: 6 }}
                 />
               );

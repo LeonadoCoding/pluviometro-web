@@ -32,7 +32,7 @@ export default function MobileBottomNav({
       {/* Botão de Lançar Chuva em Destaque Central */}
       <button
         onClick={onOpenQuickEntry}
-        className="-mt-5 w-12 h-12 rounded-full bg-gradient-to-tr from-rain-600 to-sky-400 text-white flex items-center justify-center shadow-lg shadow-rain-500/40 active:scale-95 transition"
+        className="-mt-5 w-12 h-12 rounded-full bg-gradient-to-tr from-oilema-flame to-rain-400 text-white flex items-center justify-center shadow-lg shadow-rain-500/40 active:scale-95 transition"
       >
         <Plus className="w-6 h-6 stroke-[3]" />
       </button>

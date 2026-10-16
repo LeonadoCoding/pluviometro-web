@@ -174,7 +174,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0b1329] text-slate-800 dark:text-slate-100 pb-20 sm:pb-12 flex flex-col transition-colors">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 pb-20 sm:pb-12 flex flex-col transition-colors">
       
       {/* Toast Notification */}
       {toastMsg && (
@@ -206,10 +206,10 @@ export default function App() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-5">
         
         {/* 1. CABEÇALHO DE IDENTIFICAÇÃO (UBS Sementes Oilema • Placas - Barreiras) */}
-        <div className="bg-white dark:bg-gradient-to-r dark:from-slate-900 dark:via-slate-900/90 dark:to-rain-950/40 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xs dark:shadow-none flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors">
+        <div className="bg-white border-l-4 border-l-rain-500 dark:bg-gradient-to-r dark:from-slate-900 dark:via-slate-900/90 dark:to-rain-950/30 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xs dark:shadow-none flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors">
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-agro-50 dark:bg-agro-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20">
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-oilema-petrol/10 dark:bg-slate-800 text-oilema-petrol dark:text-slate-200 border border-oilema-petrol/20 dark:border-slate-700">
                 PROPRIEDADE AGRÍCOLA
               </span>
               <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
