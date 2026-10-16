@@ -10,7 +10,8 @@ export default function PdfReportModal({
   kpis,
   safraMetricsMap,
   availableSafras,
-  recentRecords
+  recentRecords,
+  historicalMonthAvg
 }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
@@ -26,7 +27,8 @@ export default function PdfReportModal({
         kpis,
         safraMetricsMap,
         availableSafras,
-        recentRecords
+        recentRecords,
+        historicalMonthAvg
       });
       const safeSafra = selectedSafra.replace('/', '_');
       doc.save(`Boletim_Pluviometrico_Oilema_Safra_${safeSafra}.pdf`);
@@ -75,7 +77,7 @@ export default function PdfReportModal({
             <ul className="text-xs space-y-2 text-slate-700 dark:text-slate-300">
               <li className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-rain-500 flex-shrink-0"></span>
-                <span><strong>Identificação:</strong> UBS Sementes Oilema - Placas - Barreiras/BA</span>
+                <span><strong>Identificação:</strong> UBS Placas • Barreiras/BA, com a logo Oilema</span>
               </li>
               <li className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-rain-500 flex-shrink-0"></span>
@@ -87,7 +89,7 @@ export default function PdfReportModal({
               </li>
               <li className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-rain-500 flex-shrink-0"></span>
-                <span><strong>Tabela do Ciclo Agrícola:</strong> Outubro a Setembro com totais, médias diárias e acumulado</span>
+                <span><strong>Tabela do Ciclo Agrícola:</strong> Outubro a Setembro com totais, médias, acumulado e desvio da média histórica</span>
               </li>
               <li className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-rain-500 flex-shrink-0"></span>

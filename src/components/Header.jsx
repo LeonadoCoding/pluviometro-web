@@ -11,7 +11,8 @@ import {
   Lock,
   LogOut,
   UserCheck,
-  Key
+  Key,
+  Bell
 } from 'lucide-react';
 
 export default function Header({
@@ -21,6 +22,7 @@ export default function Header({
   isLocalMode,
   onOpenQuickEntry,
   onOpenBackup,
+  onOpenNotifications,
   onOpenPdfReport,
   onOpenLogin,
   onOpenChangePassword,
@@ -114,6 +116,15 @@ export default function Header({
               className="h-9 w-9 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-700/60 transition active:scale-95 hidden sm:flex"
             >
               <HardDriveDownload className="w-4 h-4" />
+            </button>
+
+            {/* Botão de Avisos por E-mail */}
+            <button
+              onClick={onOpenNotifications}
+              title="Avisos de chuva por e-mail"
+              className="h-9 w-9 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-700/60 transition active:scale-95 hidden sm:flex"
+            >
+              <Bell className="w-4 h-4" />
             </button>
 
             {/* Botão de Atualizar */}

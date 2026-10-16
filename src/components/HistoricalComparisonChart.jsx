@@ -30,7 +30,8 @@ export default function HistoricalComparisonChart({
   historicalProgression,
   availableSafras,
   currentSafra,
-  isDark = true
+  isDark = true,
+  animate = true
 }) {
   const [metricType, setMetricType] = useState('cum'); // 'cum' ou 'monthly'
   const [activeSafras, setActiveSafras] = useState(
@@ -45,7 +46,7 @@ export default function HistoricalComparisonChart({
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
-      const sortedPayload = [...payload].sort((a, b) => (b.value || 0) - (a.value || 0));
+      const sortedPayload = [...payload].filter(e => e.value != null).sort((a, b) => (b.value || 0) - (a.value || 0));
       return (
         <div className="bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-700/80 rounded-xl p-3 shadow-2xl backdrop-blur-md text-xs space-y-1.5 min-w-[220px]">
           <div className="font-bold text-sm text-slate-900 dark:text-white flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-1.5 mb-1.5">
@@ -69,7 +70,7 @@ export default function HistoricalComparisonChart({
                     Safra {safraName} {isCurrent && <span className="text-[10px] text-rain-600 dark:text-rain-400">(Atual)</span>}:
                   </span>
                   <span className="font-bold text-slate-900 dark:text-white font-mono">
-                    {Number(entry.value).toLocaleString('pt-BR')} mm
+                    {entry.value != null ? `${Number(entry.value).toLocaleString('pt-BR')} mm` : '—'}
                   </span>
                 </div>
               );
@@ -93,12 +94,12 @@ export default function HistoricalComparisonChart({
             Comparativo Histórico Sobreposto
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Sobreposição de todas as safras registradas na mesma linha do tempo (Outubro a Setembro)
+            Sobreposição de todas as safras na mesma linha do tempo (Outubro a Setembro) • valores em mm
           </p>
         </div>
 
         {/* Toggle Curva Acumulada vs Precipitação Mensal */}
-        <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200 dark:border-slate-700/60 self-start sm:self-auto lg:self-start shrink-0">
+        <div data-html2canvas-ignore="true" className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200 dark:border-slate-700/60 self-start sm:self-auto lg:self-start shrink-0">
           <button
             onClick={() => setMetricType('cum')}
             className={`px-2.5 py-1 text-xs font-semibold rounded-lg whitespace-nowrap transition ${
@@ -123,7 +124,7 @@ export default function HistoricalComparisonChart({
       </div>
 
       {/* Seletor rápido de Safras ativas */}
-      <div className="flex flex-wrap items-center gap-1.5 mb-3 pt-1">
+      <div data-html2canvas-ignore="true" className="flex flex-wrap items-center gap-1.5 mb-3 pt-1">
         <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mr-1">Exibir:</span>
         {availableSafras.map((s) => {
           const isActive = activeSafras[s] !== false;
@@ -166,7 +167,6 @@ export default function HistoricalComparisonChart({
               fontSize={11}
               tickLine={false}
               axisLine={false}
-              unit=" mm"
             />
             <Tooltip content={<CustomTooltip />} />
             <Legend
@@ -195,8 +195,9 @@ export default function HistoricalComparisonChart({
                   name={`Safra ${s}`}
                   stroke={color}
                   strokeWidth={isCurrent ? 3.5 : 2}
-                  strokeDasharray={isCurrent ? undefined : (s === '2022/2023' ? '4 4' : undefined)}
-                  dot={isCurrent ? { r: 4, fill: color, stroke: isDark ? '#1A2B31' : '#FCFCFC', strokeWidth: 2 } : { r: 2.5 }}
+                  dot={isCurrent ? { r: 4, fill: color, stroke: isDark ? '#1A2B31' : '#FCFCFC', strokeWidth: 2 } : { r: 2 }}
+                  connectNulls={false}
+                  isAnimationActive={animate}
                   activeDot={{ r: 6 }}
                 />
               );

@@ -1,34 +1,47 @@
 import { formatDateBR } from './dates';
+import { getDefaultMonth } from '../data/calculations';
 
 // Paleta Oilema (Oilema_Theme.json)
 const BRAND = {
   petrol: [56, 80, 89],       // #385059
   orange: [242, 131, 34],     // #F28322
-  flame: [242, 110, 34],      // #F26E22
-  clay: [217, 126, 74],       // #D97E4A
   orangeText: [210, 101, 27], // laranja escurecido para leitura de texto
   orangeSoft: [254, 245, 236],
   ink: [26, 43, 49],
   text: [39, 59, 67],
-  muted: [98, 120, 128],
-  subtle: [141, 160, 167],
+  muted: [74, 98, 107],
+  subtle: [98, 120, 128],
   line: [220, 227, 229],
   zebra: [245, 247, 247],
-  card: [252, 252, 252]
+  card: [252, 252, 252],
+  positive: [5, 150, 105],
+  negative: [217, 119, 6]
 };
 
-const LOGO_URL = `${import.meta.env.BASE_URL}logo-oilema.png`;
+const BASE = import.meta.env.BASE_URL;
+const FONT = 'PlusJakartaSans';
+const EM_DASH = '—';
+
+// Evento ouvido pelo App: durante a captura os gráficos são renderizados no tema claro e sem animação
+export const PDF_CAPTURE_EVENT = 'pluviometro:pdf-capture';
+const setCaptureMode = (active) => window.dispatchEvent(new CustomEvent(PDF_CAPTURE_EVENT, { detail: active }));
+
+const fmt = (n, digits = 1) => (Number(n) || 0).toLocaleString('pt-BR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+
+async function fetchAsDataUrl(url) {
+  const blob = await (await fetch(url)).blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
 
 // Carrega a logo como DataURL + dimensões (para manter a proporção no PDF)
 async function loadLogo() {
   try {
-    const blob = await (await fetch(LOGO_URL)).blob();
-    const dataUrl = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
+    const dataUrl = await fetchAsDataUrl(`${BASE}logo-oilema.png`);
     const { width, height } = await new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
@@ -42,23 +55,20 @@ async function loadLogo() {
   }
 }
 
-// Desenha a logo com altura fixa e retorna a largura ocupada
-function drawLogo(doc, logo, x, y, h) {
-  if (!logo) return 0;
-  const w = h * (logo.width / logo.height);
-  doc.addImage(logo.dataUrl, 'PNG', x, y, w, h);
-  return w;
-}
-
-function drawFooter(doc, text, pageLabel, pageWidth, pageHeight, margin) {
-  doc.setFillColor(...BRAND.orange);
-  doc.rect(margin, pageHeight - 10, pageWidth - margin * 2, 0.4, 'F');
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
-  doc.setTextColor(...BRAND.subtle);
-  doc.text(text, margin, pageHeight - 6);
-  doc.setTextColor(...BRAND.petrol);
-  doc.text(pageLabel, pageWidth - margin, pageHeight - 6, { align: 'right' });
+// Embute a Plus Jakarta Sans (fonte do site) no PDF; se falhar, usa Helvetica
+async function registerBrandFont(doc) {
+  try {
+    const files = [['PlusJakartaSans-Regular.ttf', 'normal'], ['PlusJakartaSans-Bold.ttf', 'bold']];
+    for (const [file, style] of files) {
+      const dataUrl = await fetchAsDataUrl(`${BASE}fonts/${file}`);
+      doc.addFileToVFS(file, dataUrl.split(',')[1]);
+      doc.addFont(file, FONT, style);
+    }
+    return FONT;
+  } catch (err) {
+    console.warn('Fonte da marca indisponível, usando Helvetica:', err);
+    return 'helvetica';
+  }
 }
 
 async function captureElementAsImage(elementId) {
@@ -71,27 +81,36 @@ async function captureElementAsImage(elementId) {
   const originalAlignSelf = el.style.alignSelf;
 
   try {
-    // Padroniza a largura temporariamente para proporção ideal de relatório (740px)
-    // Isso garante que tanto no smartphone quanto no computador o gráfico seja capturado na proporção perfeita
+    // Largura fixa de captura: mesma proporção no celular e no computador
     el.style.width = '740px';
     el.style.maxWidth = '740px';
     // Evita que o card seja esticado pela grade (altura do card vizinho) durante a captura
     el.style.alignSelf = 'start';
     window.dispatchEvent(new Event('resize'));
 
-    // Aguarda o Recharts recomputar as dimensões do SVG e concluir a animação das linhas
-    await new Promise(resolve => setTimeout(resolve, 1600));
+    // Aguarda o Recharts recomputar as dimensões do SVG (animações ficam desligadas na captura)
+    await new Promise(resolve => setTimeout(resolve, 400));
 
     const canvas = await html2canvas(el, {
       scale: 2,
       useCORS: true,
       logging: false,
-      allowTaint: true,
-      backgroundColor: null
+      backgroundColor: '#ffffff',
+      // Controles interativos (botões, chips) têm data-html2canvas-ignore e não entram na captura
+      onclone: (clonedDoc) => {
+        const card = clonedDoc.getElementById(elementId);
+        if (!card) return;
+        // Sem moldura de card: o gráfico entra "limpo" na página
+        Object.assign(card.style, {
+          border: 'none', boxShadow: 'none', background: '#ffffff',
+          backdropFilter: 'none', borderRadius: '0', padding: '0'
+        });
+      }
     });
 
     return {
-      dataUrl: canvas.toDataURL('image/png'),
+      // JPEG com fundo branco: arquivo final muito menor que PNG sem compressão
+      dataUrl: canvas.toDataURL('image/jpeg', 0.9),
       width: canvas.width,
       height: canvas.height
     };
@@ -107,7 +126,7 @@ async function captureElementAsImage(elementId) {
   }
 }
 
-// Função matemática para renderizar imagem preservando RIGOROSAMENTE a proporção (Zero distorção)
+// Renderiza a imagem preservando a proporção, centralizada na largura disponível
 function drawPreservedImage(doc, imgData, x, y, maxW, maxH) {
   if (!imgData || !imgData.dataUrl) return y;
 
@@ -120,10 +139,8 @@ function drawPreservedImage(doc, imgData, x, y, maxW, maxH) {
     targetW = targetH * ratio;
   }
 
-  // Centraliza horizontalmente na área útil da página
   const targetX = x + (maxW - targetW) / 2;
-
-  doc.addImage(imgData.dataUrl, 'PNG', targetX, y, targetW, targetH);
+  doc.addImage(imgData.dataUrl, 'JPEG', targetX, y, targetW, targetH, undefined, 'FAST');
   return y + targetH;
 }
 
@@ -133,32 +150,67 @@ export async function generatePluviometroPDF({
   kpis,
   safraMetricsMap,
   availableSafras,
-  recentRecords
+  recentRecords,
+  historicalMonthAvg = {}
 }) {
   const jsPDF = (await import('jspdf')).default;
-  const doc = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4'
-  });
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 12;
   const contentWidth = pageWidth - (margin * 2);
+  const right = pageWidth - margin;
 
-  const logo = await loadLogo();
+  const [logo, fontName] = await Promise.all([loadLogo(), registerBrandFont(doc)]);
+  const font = (style = 'normal', size = 8, color = BRAND.text) => {
+    doc.setFont(fontName, style);
+    doc.setFontSize(size);
+    doc.setTextColor(...color);
+  };
 
-  // 1. Captura ambos os gráficos com garantia de proporção
-  const chartProgression = await captureElementAsImage('chart-progression-card');
-  const chartHistorical = await captureElementAsImage('chart-historical-card');
+  const drawLogo = (x, y, h) => {
+    if (!logo) return 0;
+    const w = h * (logo.width / logo.height);
+    doc.addImage(logo.dataUrl, 'PNG', x, y, w, h, 'logo', 'FAST');
+    return w;
+  };
+
+  const sectionTitle = (text, y) => {
+    font('bold', 10, BRAND.petrol);
+    doc.text(text, margin, y);
+    return y + 4;
+  };
+
+  const drawFooter = (pageLabel) => {
+    doc.setFillColor(...BRAND.orange);
+    doc.rect(margin, pageHeight - 10, contentWidth, 0.4, 'F');
+    font('normal', 7, BRAND.subtle);
+    doc.text('Dados registrados no pluviômetro da UBS Placas • Barreiras/BA', margin, pageHeight - 6);
+    font('bold', 7, BRAND.petrol);
+    doc.text(pageLabel, right, pageHeight - 6, { align: 'right' });
+  };
+
+  // Gráficos capturados antes de desenhar (a captura altera o layout por alguns instantes)
+  let chartProgression = null;
+  let chartHistorical = null;
+  setCaptureMode(true);
+  try {
+    await new Promise(resolve => setTimeout(resolve, 150));
+    chartProgression = await captureElementAsImage('chart-progression-card');
+    chartHistorical = await captureElementAsImage('chart-historical-card');
+  } finally {
+    setCaptureMode(false);
+  }
+
+  const progression = currentSafraMetrics?.progression || [];
+  const monthsMap = currentSafraMetrics?.months || {};
 
   // ==========================================
-  // PÁGINA 1: BOLETIM EXECUTIVO & GRÁFICOS
+  // PÁGINA 1: INDICADORES E GRÁFICOS
   // ==========================================
 
-  // Header: logo Oilema + identificação, com faixa de destaque laranja/petróleo
-  const logoW = drawLogo(doc, logo, margin, 4.5, 16);
+  const logoW = drawLogo(margin, 4.5, 16);
   const titleX = logoW ? margin + logoW + 5 : margin;
   if (logoW) {
     doc.setDrawColor(...BRAND.line);
@@ -166,64 +218,51 @@ export async function generatePluviometroPDF({
     doc.line(titleX - 2.5, 6, titleX - 2.5, 20);
   }
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11.5);
-  doc.setTextColor(...BRAND.petrol);
-  doc.text('UBS SEMENTES OILEMA • PLACAS - BARREIRAS / BA', titleX, 10.5);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
-  doc.setTextColor(...BRAND.orangeText);
-  doc.text(`BOLETIM E RELATÓRIO PLUVIOMÉTRICO — SAFRA ${selectedSafra}`, titleX, 15.5);
+  font('bold', 13, BRAND.petrol);
+  doc.text('UBS Placas • Barreiras/BA', titleX, 10.5);
+  font('bold', 8.5, BRAND.orangeText);
+  doc.text(`BOLETIM PLUVIOMÉTRICO • SAFRA ${selectedSafra}`, titleX, 15.5);
 
   const now = new Date();
-  const dateFormatted = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()} às ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(...BRAND.muted);
-  doc.text(`Emissão: ${dateFormatted}`, titleX, 20);
+  const pad = (n) => String(n).padStart(2, '0');
+  font('normal', 7.5, BRAND.subtle);
+  doc.text(`Emissão: ${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} às ${pad(now.getHours())}:${pad(now.getMinutes())}`, titleX, 20);
 
   doc.setFillColor(...BRAND.orange);
   doc.rect(0, 24.2, pageWidth, 1.2, 'F');
   doc.setFillColor(...BRAND.petrol);
   doc.rect(0, 25.4, pageWidth, 0.6, 'F');
 
-  let y = 31;
+  let y = sectionTitle('1. Resumo dos indicadores da safra', 33);
 
-  // 1. CARDS DE KPIS
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9.5);
-  doc.setTextColor(...BRAND.petrol);
-  doc.text('1. RESUMO DOS INDICADORES DA SAFRA', margin, y);
-  y += 4;
-
+  // Mesma regra do card do site para o mês exibido
+  const activeMonth = getDefaultMonth(currentSafraMetrics);
   const cardWidth = (contentWidth - 9) / 4;
-  const cardHeight = 17;
-
+  const cardHeight = 18;
   const cardsData = [
     {
-      title: 'ACUMULADO SAFRA',
-      value: `${currentSafraMetrics?.total_mm?.toLocaleString('pt-BR', { minimumFractionDigits: 1 }) || '0'} mm`,
+      title: 'ACUMULADO DA SAFRA',
+      value: `${fmt(currentSafraMetrics?.total_mm)} mm`,
       sub: `${currentSafraMetrics?.rainy_days || 0} dias com chuva`,
       color: BRAND.orange
     },
     {
-      title: 'MÉDIA DIÁRIA MÊS',
-      value: `${(currentSafraMetrics?.progression?.find(p => p.monthTotal > 0)?.dailyAverage || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} mm/d`,
-      sub: 'Total ÷ dias exatos',
+      title: 'MÉDIA DIÁRIA DO MÊS',
+      value: `${fmt(activeMonth?.average_mm_day, 2)} mm/dia`,
+      sub: activeMonth ? `${activeMonth.name} • ${fmt(activeMonth.total_mm)} mm ÷ ${activeMonth.daysInMonth} dias` : EM_DASH,
       color: BRAND.petrol
     },
     {
-      title: 'PICO MÁXIMO SAFRA',
-      value: `${currentSafraMetrics?.max_day?.rain_mm ? currentSafraMetrics.max_day.rain_mm.toLocaleString('pt-BR') : '0'} mm`,
-      sub: currentSafraMetrics?.max_day?.date ? formatDateBR(currentSafraMetrics.max_day.date) : 'N/D',
-      color: BRAND.clay
+      title: 'PICO MÁXIMO DA SAFRA',
+      value: `${fmt(currentSafraMetrics?.max_day?.rain_mm)} mm`,
+      sub: currentSafraMetrics?.max_day?.date ? formatDateBR(currentSafraMetrics.max_day.date) : EM_DASH,
+      color: BRAND.petrol
     },
     {
       title: 'RECORDE HISTÓRICO',
-      value: `${kpis?.recordDay?.rain_mm ? kpis.recordDay.rain_mm.toLocaleString('pt-BR') : '0'} mm`,
-      sub: kpis?.recordDay?.date ? `${formatDateBR(kpis.recordDay.date)} (${kpis.recordDay.safra})` : 'N/D',
-      color: BRAND.flame
+      value: `${fmt(kpis?.recordDay?.rain_mm)} mm`,
+      sub: kpis?.recordDay?.date ? `${formatDateBR(kpis.recordDay.date)} • Safra ${kpis.recordDay.safra}` : EM_DASH,
+      color: BRAND.petrol
     }
   ];
 
@@ -231,218 +270,207 @@ export async function generatePluviometroPDF({
     const x = margin + (idx * (cardWidth + 3));
     doc.setFillColor(...BRAND.card);
     doc.setDrawColor(...BRAND.line);
+    doc.setLineWidth(0.2);
     doc.roundedRect(x, y, cardWidth, cardHeight, 1.5, 1.5, 'FD');
+    doc.setFillColor(...c.color);
+    doc.rect(x, y, 1.6, cardHeight, 'F');
 
-    // Colored left border
-    doc.setFillColor(c.color[0], c.color[1], c.color[2]);
-    doc.rect(x, y, 2.2, cardHeight, 'F');
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(6.5);
-    doc.setTextColor(...BRAND.muted);
-    doc.text(c.title, x + 4.5, y + 4.2);
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(...BRAND.ink);
-    doc.text(c.value, x + 4.5, y + 10);
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6);
-    doc.setTextColor(...BRAND.muted);
-    doc.text(c.sub, x + 4.5, y + 14.5);
+    font('bold', 6.5, BRAND.subtle);
+    doc.text(c.title, x + 4.5, y + 4.6);
+    font('bold', 11, BRAND.ink);
+    doc.text(c.value, x + 4.5, y + 10.8);
+    font('normal', 6.3, BRAND.muted);
+    doc.text(c.sub, x + 4.5, y + 15.2, { maxWidth: cardWidth - 6 });
   });
 
-  y += cardHeight + 7;
+  y += cardHeight + 9;
 
-  // 2. SEÇÃO DE GRÁFICOS VISUAIS COM DIMENSIONAMENTO PERFEITO
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9.5);
-  doc.setTextColor(...BRAND.petrol);
-  doc.text('2. ANÁLISE GRÁFICA: PROGRESSO E HISTÓRICO SOBREPOSTO', margin, y);
-  y += 4;
-
-  const maxChartH = 106; // Altura máxima permitida para cada gráfico
-
-  // Inserção do Gráfico 1 (Progresso Pluviométrico) com proporção preservada
+  y = sectionTitle('2. Análise gráfica: progresso e histórico sobreposto', y);
+  y += 1;
+  const maxChartH = 104;
   if (chartProgression) {
     y = drawPreservedImage(doc, chartProgression, margin, y, contentWidth, maxChartH);
-    y += 5;
+    y += 4;
+    doc.setDrawColor(...BRAND.line);
+    doc.line(margin, y, right, y);
+    y += 4;
   }
-
-  // Inserção do Gráfico 2 (Comparativo Histórico Sobreposto) com proporção preservada
   if (chartHistorical) {
-    drawPreservedImage(doc, chartHistorical, margin, y, contentWidth, maxChartH);
+    drawPreservedImage(doc, chartHistorical, margin, y, contentWidth, Math.min(maxChartH, pageHeight - 14 - y));
   }
 
-  // Footer Página 1
-  drawFooter(doc, 'Boletim Pluviométrico Oficial • UBS Sementes Oilema • Barreiras / BA', 'Página 1 de 2', pageWidth, pageHeight, margin);
+  drawFooter('Página 1 de 2');
 
   // ==========================================
   // PÁGINA 2: TABELAS E DETALHAMENTO NUMÉRICO
   // ==========================================
   doc.addPage();
 
-  // Header Compacto Página 2
-  const logoW2 = drawLogo(doc, logo, margin, 3, 10);
+  const logoW2 = drawLogo(margin, 3, 10);
   const title2X = logoW2 ? margin + logoW2 + 4 : margin;
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9.5);
-  doc.setTextColor(...BRAND.petrol);
-  doc.text('DETALHAMENTO DO CICLO PLUVIOMÉTRICO', title2X, 9.5);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.setTextColor(...BRAND.orangeText);
-  doc.text(`Safra ${selectedSafra}`, pageWidth - margin, 9.5, { align: 'right' });
-
+  font('bold', 10, BRAND.petrol);
+  doc.text('Detalhamento do ciclo pluviométrico', title2X, 9.5);
+  font('bold', 8, BRAND.orangeText);
+  doc.text(`Safra ${selectedSafra}`, right, 9.5, { align: 'right' });
   doc.setFillColor(...BRAND.orange);
   doc.rect(0, 14.6, pageWidth, 0.8, 'F');
   doc.setFillColor(...BRAND.petrol);
   doc.rect(0, 15.4, pageWidth, 0.4, 'F');
 
-  y = 24;
+  // Tabela genérica: colunas com largura e alinhamento; números à direita
+  const drawTable = (columns, rows, startY, { headerH = 6.5, rowH = 5.6 } = {}) => {
+    let ty = startY;
+    doc.setFillColor(...BRAND.petrol);
+    doc.rect(margin, ty, contentWidth, headerH, 'F');
+    font('bold', 6.8, [255, 255, 255]);
+    let cx = margin;
+    columns.forEach(col => {
+      const tx = col.align === 'right' ? cx + col.w - 2.5 : cx + 2.5;
+      doc.text(col.label, tx, ty + headerH / 2 + 1.2, { align: col.align || 'left' });
+      cx += col.w;
+    });
+    ty += headerH;
 
-  // 3. TABELA DETALHADA DO CICLO AGRÍCOLA
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9.5);
-  doc.setTextColor(...BRAND.petrol);
-  doc.text('3. DETALHAMENTO MENSAL DA SAFRA (OUTUBRO A SETEMBRO)', margin, y);
-  y += 4;
+    rows.forEach((row, i) => {
+      const bg = row.highlight ? BRAND.orangeSoft : (i % 2 === 1 ? BRAND.zebra : [255, 255, 255]);
+      doc.setFillColor(...bg);
+      doc.rect(margin, ty, contentWidth, rowH, 'F');
+      if (row.highlight) {
+        doc.setFillColor(...BRAND.orange);
+        doc.rect(margin, ty, 1.2, rowH, 'F');
+      }
+      let rx = margin;
+      columns.forEach((col, ci) => {
+        const cell = row.cells[ci];
+        const value = typeof cell === 'object' && cell !== null ? cell : { text: cell };
+        font(value.bold || row.bold ? 'bold' : 'normal', 7.3, value.color || (row.highlight ? BRAND.ink : BRAND.text));
+        const tx = col.align === 'right' ? rx + col.w - 2.5 : rx + 2.5;
+        doc.text(String(value.text ?? EM_DASH), tx, ty + rowH / 2 + 1.2, { align: col.align || 'left' });
+        // Selo após o texto (ex.: "ATUAL"), posicionado pela largura real do texto
+        if (value.badge) {
+          const textW = doc.getTextWidth(String(value.text));
+          const bx = tx + textW + 2;
+          font('bold', 5.5, [255, 255, 255]);
+          const bw = doc.getTextWidth(value.badge) + 3;
+          doc.setFillColor(...BRAND.orange);
+          doc.roundedRect(bx, ty + 1.2, bw, rowH - 2.4, 0.8, 0.8, 'F');
+          doc.text(value.badge, bx + 1.5, ty + rowH / 2 + 0.9);
+        }
+        rx += col.w;
+      });
+      ty += rowH;
+    });
+    return ty;
+  };
 
-  // Cabeçalho da tabela
-  doc.setFillColor(...BRAND.petrol);
-  doc.rect(margin, y, contentWidth, 6, 'F');
+  // 3. DETALHAMENTO MENSAL (com média histórica e desvio)
+  y = sectionTitle('3. Detalhamento mensal da safra (outubro a setembro)', 24);
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
-  doc.setTextColor(255, 255, 255);
-  doc.text('MÊS / ANO', margin + 3, y + 4.2);
-  doc.text('TOTAL DO MÊS (mm)', margin + 45, y + 4.2);
-  doc.text('MÉDIA DIÁRIA (mm/dia)', margin + 90, y + 4.2);
-  doc.text('DIAS C/ CHUVA', margin + 135, y + 4.2);
-  doc.text('ACUMULADO (mm)', margin + 160, y + 4.2);
+  const deviationCell = (value, reference) => {
+    if (reference == null || reference <= 0 || value == null) return EM_DASH;
+    const pct = Math.round(((value - reference) / reference) * 100);
+    return { text: `${pct > 0 ? '+' : ''}${pct}%`, bold: true, color: pct >= 0 ? BRAND.positive : BRAND.negative };
+  };
 
-  y += 6;
-
-  const progression = currentSafraMetrics?.progression || [];
-  progression.forEach((row, i) => {
-    const isEven = i % 2 === 0;
-    doc.setFillColor(...(isEven ? [255, 255, 255] : BRAND.zebra));
-    doc.rect(margin, y, contentWidth, 5.5, 'F');
-
-    doc.setDrawColor(...BRAND.line);
-    doc.line(margin, y + 5.5, margin + contentWidth, y + 5.5);
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
-    doc.setTextColor(...BRAND.text);
-    doc.text(`${row.monthName} (${row.year})`, margin + 3, y + 4);
-
-    doc.setFont('helvetica', 'normal');
-    doc.text(`${row.monthTotal.toLocaleString('pt-BR', { minimumFractionDigits: 1 })} mm`, margin + 45, y + 4);
-    doc.text(`${row.dailyAverage.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} mm/dia (${row.daysInMonth}d)`, margin + 90, y + 4);
-    doc.text(`${row.rainyDays} dias`, margin + 135, y + 4);
-
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...BRAND.orangeText);
-    doc.text(`${row.cumulative.toLocaleString('pt-BR', { minimumFractionDigits: 1 })} mm`, margin + 160, y + 4);
-
-    y += 5.5;
+  let histToDate = 0;
+  const monthRows = progression.map(row => {
+    const m = monthsMap[row.monthCode];
+    const hist = historicalMonthAvg[row.monthCode];
+    const label = `${row.monthName} (${row.year})${m?.status === 'current' ? ' *' : ''}`;
+    if (row.isFuture) {
+      return { cells: [{ text: label, color: BRAND.subtle }, EM_DASH, EM_DASH, EM_DASH, EM_DASH, hist != null ? fmt(hist) : EM_DASH, EM_DASH] };
+    }
+    if (hist != null) histToDate += hist;
+    return {
+      cells: [
+        { text: label, bold: true },
+        fmt(row.monthTotal),
+        `${fmt(row.dailyAverage, 2)} (${row.daysInMonth}d)`,
+        String(row.rainyDays),
+        { text: fmt(row.cumulative), bold: true, color: BRAND.orangeText },
+        hist != null ? fmt(hist) : EM_DASH,
+        m?.status === 'current' ? { text: 'em curso', color: BRAND.subtle } : deviationCell(row.monthTotal, hist)
+      ]
+    };
+  });
+  monthRows.push({
+    highlight: true,
+    bold: true,
+    cells: [
+      'TOTAL DA SAFRA',
+      fmt(currentSafraMetrics?.total_mm),
+      EM_DASH,
+      String(currentSafraMetrics?.rainy_days || 0),
+      { text: fmt(currentSafraMetrics?.total_mm), color: BRAND.orangeText },
+      histToDate > 0 ? fmt(histToDate) : EM_DASH,
+      deviationCell(currentSafraMetrics?.total_mm, histToDate)
+    ]
   });
 
-  // Linha de Total Acumulado
-  doc.setFillColor(...BRAND.orangeSoft);
-  doc.rect(margin, y, contentWidth, 6.5, 'F');
-  doc.setFillColor(...BRAND.orange);
-  doc.rect(margin, y, 1.2, 6.5, 'F');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.setTextColor(...BRAND.petrol);
-  doc.text('TOTAL ACUMULADO DA SAFRA', margin + 3, y + 4.5);
-  doc.text(`${currentSafraMetrics?.total_mm?.toLocaleString('pt-BR', { minimumFractionDigits: 1 })} mm`, margin + 45, y + 4.5);
-  doc.text(`${currentSafraMetrics?.rainy_days || 0} dias com chuva`, margin + 135, y + 4.5);
-  doc.text(`${currentSafraMetrics?.total_mm?.toLocaleString('pt-BR', { minimumFractionDigits: 1 })} mm`, margin + 160, y + 4.5);
+  y = drawTable([
+    { label: 'MÊS', w: 40 },
+    { label: 'TOTAL (mm)', w: 22, align: 'right' },
+    { label: 'MÉDIA (mm/dia)', w: 28, align: 'right' },
+    { label: 'DIAS C/ CHUVA', w: 22, align: 'right' },
+    { label: 'ACUMULADO (mm)', w: 26, align: 'right' },
+    { label: 'MÉDIA HIST. (mm)', w: 26, align: 'right' },
+    { label: 'DESVIO', w: 22, align: 'right' }
+  ], monthRows, y);
 
-  y += 14;
-
-  // 4. COMPARATIVO HISTÓRICO DE TODAS AS SAFRAS
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9.5);
-  doc.setTextColor(...BRAND.petrol);
-  doc.text('4. COMPARATIVO HISTÓRICO DE TODAS AS SAFRAS REGISTRADAS', margin, y);
-  y += 4;
-
-  doc.setFillColor(...BRAND.petrol);
-  doc.rect(margin, y, contentWidth, 5.5, 'F');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
-  doc.setTextColor(255, 255, 255);
-  doc.text('SAFRA', margin + 3, y + 4);
-  doc.text('VOLUME TOTAL (mm)', margin + 45, y + 4);
-  doc.text('DIAS C/ CHUVA', margin + 95, y + 4);
-  doc.text('MAIOR CHUVA EM 24H (PICO)', margin + 135, y + 4);
-
-  y += 5.5;
-
-  (availableSafras || []).forEach((safraName, idx) => {
-    const sMetrics = safraMetricsMap[safraName];
-    const isCurrent = safraName === selectedSafra;
-
-    doc.setFillColor(...(isCurrent ? BRAND.orangeSoft : (idx % 2 === 0 ? [255, 255, 255] : BRAND.zebra)));
-    doc.rect(margin, y, contentWidth, 5, 'F');
-
-    doc.setFont('helvetica', isCurrent ? 'bold' : 'normal');
-    doc.setFontSize(7.5);
-    doc.setTextColor(...(isCurrent ? BRAND.orangeText : BRAND.text));
-    doc.text(`Safra ${safraName}${isCurrent ? ' (Safra Visualizada)' : ''}`, margin + 3, y + 3.8);
-
-    doc.text(`${sMetrics?.total_mm?.toLocaleString('pt-BR', { minimumFractionDigits: 1 }) || 0} mm`, margin + 45, y + 3.8);
-    doc.text(`${sMetrics?.rainy_days || 0} dias`, margin + 95, y + 3.8);
-    doc.text(`${sMetrics?.max_day?.rain_mm ? `${sMetrics.max_day.rain_mm} mm em ${formatDateBR(sMetrics.max_day.date)}` : '-'}`, margin + 135, y + 3.8);
-
-    y += 5;
-  });
-
+  font('normal', 6.3, BRAND.subtle);
+  doc.text('* Mês em andamento (valores parciais). Média histórica: média dos meses já encerrados de todas as safras. Desvio: total do mês em relação à média histórica.', margin, y + 4, { maxWidth: contentWidth });
   y += 12;
 
-  // 5. ÚLTIMOS LANÇAMENTOS REGISTRADOS
-  if (recentRecords && recentRecords.length > 0) {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9.5);
-    doc.setTextColor(...BRAND.petrol);
-    doc.text('5. ÚLTIMAS LEITURAS REGISTRADAS NO PLUVIÔMETRO', margin, y);
-    y += 4;
+  // 4. COMPARATIVO HISTÓRICO
+  y = sectionTitle('4. Comparativo histórico de todas as safras registradas', y);
+  const safraRows = (availableSafras || []).map(safraName => {
+    const sMetrics = safraMetricsMap[safraName];
+    const isCurrent = safraName === selectedSafra;
+    return {
+      highlight: isCurrent,
+      cells: [
+        isCurrent ? { text: `Safra ${safraName}`, bold: true, badge: 'ATUAL' } : `Safra ${safraName}`,
+        fmt(sMetrics?.total_mm),
+        String(sMetrics?.rainy_days || 0),
+        sMetrics?.max_day?.rain_mm ? fmt(sMetrics.max_day.rain_mm) : EM_DASH,
+        sMetrics?.max_day?.date ? formatDateBR(sMetrics.max_day.date) : EM_DASH
+      ]
+    };
+  });
+  y = drawTable([
+    { label: 'SAFRA', w: 54 },
+    { label: 'VOLUME TOTAL (mm)', w: 34, align: 'right' },
+    { label: 'DIAS C/ CHUVA', w: 30, align: 'right' },
+    { label: 'MAIOR CHUVA EM 24H (mm)', w: 40, align: 'right' },
+    { label: 'DATA DO PICO', w: 28, align: 'right' }
+  ], safraRows, y);
+  y += 10;
 
+  // 5. ÚLTIMAS LEITURAS
+  if (recentRecords && recentRecords.length > 0) {
+    y = sectionTitle('5. Últimas leituras registradas no pluviômetro', y);
     const lastFive = recentRecords.slice(0, 5);
-    const itemW = (contentWidth - 8) / lastFive.length;
+    const gap = 2.5;
+    const itemW = (contentWidth - gap * (lastFive.length - 1)) / lastFive.length;
+    const itemH = 19;
 
     lastFive.forEach((r, idx) => {
-      const rx = margin + (idx * (itemW + 2));
+      const rx = margin + (idx * (itemW + gap));
       doc.setFillColor(...BRAND.card);
       doc.setDrawColor(...BRAND.line);
-      doc.roundedRect(rx, y, itemW, 14, 1.5, 1.5, 'FD');
+      doc.roundedRect(rx, y, itemW, itemH, 1.5, 1.5, 'FD');
 
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7);
-      doc.setTextColor(...BRAND.muted);
-      doc.text(formatDateBR(r.date), rx + 3, y + 4.5);
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.setTextColor(...BRAND.orangeText);
-      doc.text(`${r.rain_mm.toLocaleString('pt-BR')} mm`, rx + 3, y + 9.5);
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(6);
-      doc.setTextColor(...BRAND.subtle);
-      doc.text(r.notes ? (r.notes.length > 15 ? r.notes.substring(0, 15) + '...' : r.notes) : 'Leitura oficial', rx + 3, y + 12.5);
+      font('bold', 7, BRAND.subtle);
+      doc.text(formatDateBR(r.date), rx + 3, y + 4.8);
+      font('bold', 10, BRAND.orangeText);
+      doc.text(`${fmt(r.rain_mm)} mm`, rx + 3, y + 10);
+      font('normal', 6.3, BRAND.muted);
+      const note = doc.splitTextToSize(r.notes || 'Leitura registrada', itemW - 6).slice(0, 2);
+      doc.text(note, rx + 3, y + 13.6);
     });
   }
 
-  // Footer Página 2
-  drawFooter(doc, 'Relatório gerado automaticamente pelo Sistema Pluviômetro Oilema • Validade Técnica e Agronômica', 'Página 2 de 2', pageWidth, pageHeight, margin);
+  drawFooter('Página 2 de 2');
 
   return doc;
 }

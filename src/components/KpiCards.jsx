@@ -1,34 +1,96 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Droplets, Calendar, Award, TrendingUp, TrendingDown } from 'lucide-react';
 import { formatDateBR, MONTHS_SAFRA } from '../utils/dates';
+import { getDefaultMonth } from '../data/calculations';
 
-export default function KpiCards({ currentSafraMetrics, kpis, selectedSafra }) {
+const fmt = (n, digits = 2) => (n || 0).toLocaleString('pt-BR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+
+function MonthlyAverageCard({ selectedSafra, safraMetricsMap, availableSafras, historicalMonthAvg }) {
+  const defaultMonthCode = getDefaultMonth(safraMetricsMap[selectedSafra])?.code || 'OUT';
+  const [safra, setSafra] = useState(selectedSafra);
+  const [monthCode, setMonthCode] = useState(defaultMonthCode);
+
+  // Ao trocar a safra no topo do painel, o card volta ao mês padrão dessa safra
+  useEffect(() => {
+    setSafra(selectedSafra);
+    setMonthCode(defaultMonthCode);
+  }, [selectedSafra, defaultMonthCode]);
+
+  const month = safraMetricsMap[safra]?.months?.[monthCode];
+  const isCurrent = month?.status === 'current';
+  const isFuture = month?.isFuture;
+  const histTotal = historicalMonthAvg?.[monthCode];
+  const histDaily = month && histTotal != null ? histTotal / month.daysInMonth : null;
+  // No mês em andamento, compara pelo ritmo até hoje (média dos dias decorridos)
+  const compareDaily = isCurrent ? month?.average_mm_day_elapsed : month?.average_mm_day;
+  const deviation = histDaily > 0 && !isFuture ? Math.round(((compareDaily - histDaily) / histDaily) * 100) : null;
+
+  const selectClass = 'text-[11px] font-bold text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/60 pl-1.5 pr-0.5 py-0.5 rounded-full border border-sky-200 dark:border-sky-800/50 focus:outline-none focus:ring-2 focus:ring-sky-500 cursor-pointer';
+
+  return (
+    <div className="glass-panel glass-panel-hover rounded-2xl p-4 sm:p-5 relative overflow-hidden group flex flex-col">
+      <div className="absolute top-0 right-0 w-24 h-24 bg-sky-500/10 rounded-full blur-2xl group-hover:bg-sky-500/20 transition pointer-events-none"></div>
+
+      <div className="flex items-center justify-between gap-2 text-slate-500 dark:text-slate-400 mb-2 min-h-[24px]">
+        <span className="text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap text-sky-600 dark:text-sky-400 flex items-center gap-1.5">
+          <Calendar className="w-4 h-4 text-sky-500 dark:text-sky-400" />
+          Média Diária
+        </span>
+        <div className="flex items-center gap-1 relative">
+          <select aria-label="Mês" value={monthCode} onChange={(e) => setMonthCode(e.target.value)} className={selectClass}>
+            {MONTHS_SAFRA.map(m => <option key={m.code} value={m.code}>{m.shortName}</option>)}
+          </select>
+          <select aria-label="Safra" value={safra} onChange={(e) => setSafra(e.target.value)} className={selectClass}>
+            {availableSafras.map(s => <option key={s} value={s}>{s.replace(/^\d{2}(\d{2})\/\d{2}(\d{2})$/, '$1/$2')}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {isFuture ? (
+        <div className="flex items-baseline gap-2 mt-1 mb-3">
+          <span className="text-sm font-semibold text-slate-500 dark:text-slate-400 py-2">
+            {month?.name} de {month?.year} ainda não começou
+          </span>
+        </div>
+      ) : (
+        <div className="mt-1 mb-3">
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight font-mono">
+              {fmt(month?.average_mm_day)}
+            </span>
+            <span className="text-sm font-bold text-sky-600 dark:text-sky-400">mm / dia</span>
+          </div>
+          {isCurrent && (
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+              Até hoje: <strong className="text-slate-700 dark:text-slate-200">{fmt(month.average_mm_day_elapsed)} mm/dia</strong> ({month.elapsedDays} de {month.daysInMonth} dias)
+            </p>
+          )}
+        </div>
+      )}
+
+      <div className="mt-auto pt-3 border-t border-slate-100 dark:border-slate-800/80 space-y-1 text-xs text-slate-500 dark:text-slate-400">
+        <div className="flex items-center justify-between gap-2">
+          <span className="truncate">
+            Cálculo: <strong className="text-slate-700 dark:text-slate-200">{fmt(month?.total_mm, 1)} mm</strong> ÷ <strong className="text-slate-700 dark:text-slate-200">{month?.daysInMonth || 30} dias</strong>
+          </span>
+        </div>
+        {histDaily != null && (
+          <div className="flex items-center justify-between gap-2">
+            <span className="truncate">Média histórica: <strong className="text-slate-700 dark:text-slate-200">{fmt(histDaily)} mm/dia</strong></span>
+            {deviation != null && (
+              <span className={`font-bold whitespace-nowrap ${deviation >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                {deviation > 0 ? '+' : ''}{deviation}%
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function KpiCards({ currentSafraMetrics, kpis, selectedSafra, safraMetricsMap = {}, availableSafras = [], historicalMonthAvg = {} }) {
   if (!currentSafraMetrics) return null;
-
-  const monthsMap = currentSafraMetrics.months || {};
-  const monthsList = Object.values(monthsMap);
-  
-  // Determinação automática do Mês Atual (Sem seleção manual)
-  // 1. Tenta identificar o mês atual do calendário real
-  const currentCalMonthNum = String(new Date().getMonth() + 1).padStart(2, '0');
-  const currentMonthDef = MONTHS_SAFRA.find(m => m.key === currentCalMonthNum);
-  
-  // 2. Se a safra visualizada possuir esse mês com dados ou estiver em curso, usa ele;
-  // senão, pega o último mês com medição de chuva na safra selecionada (ou o primeiro do ciclo)
-  let activeMonth = null;
-  if (currentMonthDef && monthsMap[currentMonthDef.code] && (monthsMap[currentMonthDef.code].total_mm > 0 || selectedSafra.includes(String(new Date().getFullYear())))) {
-    activeMonth = monthsMap[currentMonthDef.code];
-  } else {
-    // Último mês com chuva na safra
-    const monthsWithRain = monthsList.filter(m => m.total_mm > 0);
-    activeMonth = monthsWithRain.length > 0 ? monthsWithRain[monthsWithRain.length - 1] : monthsList[0];
-  }
-
-  const monthTotal = activeMonth ? activeMonth.total_mm : 0;
-  const daysInMonth = activeMonth ? activeMonth.daysInMonth : 30;
-  const monthDailyAvg = activeMonth ? activeMonth.average_mm_day : 0;
-  const monthName = activeMonth ? activeMonth.name : 'Mês Atual';
-  const monthCode = activeMonth ? activeMonth.code : 'OUT';
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -63,33 +125,13 @@ export default function KpiCards({ currentSafraMetrics, kpis, selectedSafra }) {
         </div>
       </div>
 
-      {/* CARD 2: Média Diária do Mês (Automático - Sem seleção manual) */}
-      <div className="glass-panel glass-panel-hover rounded-2xl p-4 sm:p-5 relative overflow-hidden group flex flex-col">
-        <div className="absolute top-0 right-0 w-24 h-24 bg-sky-500/10 rounded-full blur-2xl group-hover:bg-sky-500/20 transition"></div>
-        
-        <div className="flex items-center justify-between gap-2 text-slate-500 dark:text-slate-400 mb-2 min-h-[24px]">
-          <span className="text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap text-sky-600 dark:text-sky-400 flex items-center gap-1.5">
-            <Calendar className="w-4 h-4 text-sky-500 dark:text-sky-400" />
-            Média Diária do Mês
-          </span>
-          <span className="text-[11px] font-bold text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/60 px-2 py-0.5 rounded-full whitespace-nowrap border border-sky-200 dark:border-sky-800/50">
-            {monthName}
-          </span>
-        </div>
-
-        <div className="flex items-baseline gap-2 mt-1 mb-3">
-          <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight font-mono">
-            {monthDailyAvg.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-          </span>
-          <span className="text-sm font-bold text-sky-600 dark:text-sky-400">mm / dia</span>
-        </div>
-
-        <div className="mt-auto pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-          <span className="truncate" title={`Cálculo exato: ${monthTotal} mm ÷ ${daysInMonth} dias exatos de ${monthName}`}>
-            Cálculo: <strong className="text-slate-700 dark:text-slate-200">{monthTotal} mm</strong> ÷ <strong className="text-slate-700 dark:text-slate-200">{daysInMonth} dias</strong>
-          </span>
-        </div>
-      </div>
+      {/* CARD 2: Média Diária do Mês (com seletor de mês e safra) */}
+      <MonthlyAverageCard
+        selectedSafra={selectedSafra}
+        safraMetricsMap={safraMetricsMap}
+        availableSafras={availableSafras}
+        historicalMonthAvg={historicalMonthAvg}
+      />
 
       {/* CARD 3: Recorde Histórico Diário */}
       <div className="glass-panel glass-panel-hover rounded-2xl p-4 sm:p-5 relative overflow-hidden group flex flex-col">

@@ -5,6 +5,7 @@ export default function ConsolidatedTable({
   consolidatedMatrix,
   availableSafras,
   safraMetricsMap,
+  historicalMonthAvg = {},
   currentSafra
 }) {
   const [copied, setCopied] = useState(false);
@@ -12,19 +13,7 @@ export default function ConsolidatedTable({
   if (!consolidatedMatrix || consolidatedMatrix.length === 0) return null;
 
   // Calculate historical monthly average across safras with data
-  const calculateHistoricalMonthAvg = (monthCode) => {
-    let total = 0;
-    let count = 0;
-    for (const s of availableSafras) {
-      const sData = safraMetricsMap[s];
-      const mData = sData?.months[monthCode];
-      if (mData && s !== '2026/2027') {
-        total += mData.total_mm;
-        count++;
-      }
-    }
-    return count > 0 ? Math.round((total / count) * 10) / 10 : 0;
-  };
+  const calculateHistoricalMonthAvg = (monthCode) => historicalMonthAvg[monthCode] || 0;
 
   const handleCopyTable = () => {
     let text = `MÊS\t${availableSafras.join('\t')}\tMÉDIA HISTÓRICA\n`;

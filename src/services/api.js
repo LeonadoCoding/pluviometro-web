@@ -9,7 +9,7 @@ const DEFAULT_PROPERTY = 'UBS SEMENTES OILEMA - PLACAS - BARREIRAS';
 function requireConfig() {
   return getSupabaseConfig();
 }
-async function supabaseFetch(path, options = {}) {
+export async function supabaseFetch(path, options = {}) {
   const { url, anonKey } = requireConfig();
   const token = await getValidAccessToken();
   if (!token) throw new Error('Sua sessão expirou. Entre novamente para continuar.');
