@@ -149,12 +149,38 @@ async function handleTest(req: Request) {
   }
 }
 
-async function handleWebhook(req: Request, payload: any) {
+async function hasValidWebhookSecret(req: Request) {
   // O segredo fica no Vault; a comparação é feita no banco (função acessível só à chave de serviço)
   const candidate = req.headers.get('x-webhook-secret') ?? '';
-  const { data: valid, error: secretError } = await admin.rpc('verify_notify_rain_secret', { candidate });
-  if (secretError) throw new Error(`Falha ao validar o segredo: ${secretError.message}`);
-  if (!candidate || !valid) return json({ error: 'Não autorizado.' }, 401);
+  if (!candidate) return false;
+  const { data: valid, error } = await admin.rpc('verify_notify_rain_secret', { candidate });
+  if (error) throw new Error(`Falha ao validar o segredo: ${error.message}`);
+  return Boolean(valid);
+}
+
+// Diagnóstico de entrega: consulta no Brevo os últimos eventos, remetentes e situação da conta
+async function handleDiagnose() {
+  const headers = { 'api-key': Deno.env.get('BREVO_API_KEY') ?? '', accept: 'application/json' };
+  const get = async (path: string) => {
+    const res = await fetch(`https://api.brevo.com/v3${path}`, { headers });
+    return { status: res.status, body: await res.json().catch(() => null) };
+  };
+  const [events, senders, account] = await Promise.all([
+    get('/smtp/statistics/events?limit=30&sort=desc&days=2'),
+    get('/senders'),
+    get('/account')
+  ]);
+  return json({
+    sender_env: Deno.env.get('BREVO_SENDER_EMAIL'),
+    events,
+    senders,
+    account: { status: account.status, plan: account.body?.plan, relay: account.body?.relay }
+  });
+}
+
+async function handleWebhook(req: Request, payload: any) {
+  if (!(await hasValidWebhookSecret(req))) return json({ error: 'Não autorizado.' }, 401);
+  if (payload.type === 'diagnose') return handleDiagnose();
   if (payload.table !== 'rain_records' || !['INSERT', 'UPDATE'].includes(payload.type)) return json({ skipped: 'evento ignorado' });
 
   const record = payload.record as RainRecord;
