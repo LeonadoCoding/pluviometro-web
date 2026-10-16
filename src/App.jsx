@@ -7,6 +7,7 @@ import ConsolidatedTable from './components/ConsolidatedTable';
 import DailyRecordsList from './components/DailyRecordsList';
 import QuickEntryModal from './components/QuickEntryModal';
 import BackupModal from './components/BackupModal';
+import NotificationsModal from './components/NotificationsModal';
 import LoginModal from './components/LoginModal';
 import LoginScreen from './components/LoginScreen';
 import ChangePasswordModal from './components/ChangePasswordModal';
@@ -14,6 +15,7 @@ import PdfReportModal from './components/PdfReportModal';
 import MobileBottomNav from './components/MobileBottomNav';
 
 import { getInitialTheme, applyTheme } from './utils/theme';
+import { PDF_CAPTURE_EVENT } from './utils/pdfGenerator';
 import { getCurrentUser, logoutUser, isAuthenticated } from './services/auth';
 import {
   checkBackendConnection,
@@ -42,6 +44,7 @@ export default function App() {
   const [isQuickEntryOpen, setIsQuickEntryOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
   const [isBackupOpen, setIsBackupOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isPdfOpen, setIsPdfOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState('dashboard');
   const [toastMsg, setToastMsg] = useState(null);
@@ -50,6 +53,25 @@ export default function App() {
   useEffect(() => {
     applyTheme(theme);
   }, [theme]);
+
+  // Durante a captura do PDF: tema claro temporário (sem salvar a preferência) e gráficos sem animação
+  const [isCapturingPdf, setIsCapturingPdf] = useState(false);
+  useEffect(() => {
+    const onCapture = (e) => {
+      const active = Boolean(e.detail);
+      setIsCapturingPdf(active);
+      const root = document.documentElement;
+      if (active) {
+        root.classList.remove('dark');
+        root.classList.add('light');
+      } else {
+        applyTheme(theme);
+      }
+    };
+    window.addEventListener(PDF_CAPTURE_EVENT, onCapture);
+    return () => window.removeEventListener(PDF_CAPTURE_EVENT, onCapture);
+  }, [theme]);
+  const chartsDark = theme === 'dark' && !isCapturingPdf;
 
   const handleToggleTheme = () => {
     const nextTheme = theme === 'dark' ? 'light' : 'dark';
@@ -191,6 +213,7 @@ export default function App() {
         isLocalMode={isLocalMode}
         onOpenQuickEntry={handleOpenQuickEntry}
         onOpenBackup={() => setIsBackupOpen(true)}
+        onOpenNotifications={() => setIsNotificationsOpen(true)}
         onOpenPdfReport={() => setIsPdfOpen(true)}
         onOpenLogin={() => setIsLoginOpen(true)}
         onOpenChangePassword={() => setIsChangePasswordOpen(true)}
@@ -206,7 +229,7 @@ export default function App() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-5">
         
         {/* 1. CABEÇALHO DE IDENTIFICAÇÃO (UBS Sementes Oilema • Placas - Barreiras) */}
-        <div className="bg-white border-l-4 border-l-rain-500 dark:bg-gradient-to-r dark:from-slate-900 dark:via-slate-900/90 dark:to-rain-950/30 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xs dark:shadow-none flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors">
+        <div className="bg-white dark:bg-slate-900 border-l-4 border-l-rain-500 dark:bg-gradient-to-r dark:from-slate-900 dark:via-slate-900/90 dark:to-rain-950/30 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xs dark:shadow-none flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors">
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-oilema-petrol/10 dark:bg-slate-800 text-oilema-petrol dark:text-slate-200 border border-oilema-petrol/20 dark:border-slate-700">
@@ -252,6 +275,9 @@ export default function App() {
             currentSafraMetrics={dashboardData?.currentSafraMetrics}
             kpis={dashboardData?.kpis}
             selectedSafra={selectedSafra}
+            safraMetricsMap={dashboardData?.safraMetricsMap || {}}
+            availableSafras={availableSafras}
+            historicalMonthAvg={dashboardData?.historicalMonthAvg || {}}
           />
         </section>
 
@@ -261,7 +287,8 @@ export default function App() {
           <ProgressionChart
             progression={dashboardData?.currentSafraMetrics?.progression}
             selectedSafra={selectedSafra}
-            isDark={theme === 'dark'}
+            isDark={chartsDark}
+            animate={!isCapturingPdf}
           />
 
           {/* Gráfico 2: Comparativo Histórico Sobreposto */}
@@ -269,7 +296,8 @@ export default function App() {
             historicalProgression={dashboardData?.historicalProgression}
             availableSafras={availableSafras}
             currentSafra={selectedSafra}
-            isDark={theme === 'dark'}
+            isDark={chartsDark}
+            animate={!isCapturingPdf}
           />
         </section>
 
@@ -279,6 +307,7 @@ export default function App() {
             consolidatedMatrix={dashboardData?.consolidatedMatrix}
             availableSafras={availableSafras}
             safraMetricsMap={dashboardData?.safraMetricsMap || {}}
+            historicalMonthAvg={dashboardData?.historicalMonthAvg || {}}
             currentSafra={selectedSafra}
           />
         </section>
@@ -304,6 +333,12 @@ export default function App() {
         onClose={() => setIsBackupOpen(false)}
         onDataChanged={() => loadData(selectedSafra)}
         isLocalMode={isLocalMode}
+      />
+
+      {/* Modal de Avisos por E-mail */}
+      <NotificationsModal
+        isOpen={isNotificationsOpen}
+        onClose={() => setIsNotificationsOpen(false)}
       />
 
       {/* Modal de Login Seguro */}
@@ -333,6 +368,7 @@ export default function App() {
         safraMetricsMap={dashboardData?.safraMetricsMap || {}}
         availableSafras={availableSafras}
         recentRecords={records.slice(0, 10)}
+        historicalMonthAvg={dashboardData?.historicalMonthAvg || {}}
       />
 
       {/* Barra de Navegação Inferior Mobile */}

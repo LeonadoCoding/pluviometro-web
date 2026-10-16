@@ -12,7 +12,7 @@ import {
 } from 'recharts';
 import { BarChart3, TrendingUp, Layers } from 'lucide-react';
 
-export default function ProgressionChart({ progression, selectedSafra, isDark = true }) {
+export default function ProgressionChart({ progression, selectedSafra, isDark = true, animate = true }) {
   const [viewMode, setViewMode] = useState('combined'); // 'combined', 'monthly', 'cumulative'
 
   if (!progression || progression.length === 0) return null;
@@ -49,7 +49,7 @@ export default function ProgressionChart({ progression, selectedSafra, isDark = 
               <span className="w-2.5 h-2.5 rounded-full bg-oilema-petrol dark:bg-slate-300 inline-block"></span>
               Acumulado até o mês:
             </span>
-            <span className="font-extrabold text-oilema-petrol dark:text-slate-100">{data.cumulative.toLocaleString('pt-BR')} mm</span>
+            <span className="font-extrabold text-oilema-petrol dark:text-slate-100">{data.cumulative != null ? `${data.cumulative.toLocaleString('pt-BR')} mm` : '—'}</span>
           </div>
         </div>
       );
@@ -77,7 +77,7 @@ export default function ProgressionChart({ progression, selectedSafra, isDark = 
         </div>
 
         {/* Seletor de Modo de Visualização */}
-        <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200 dark:border-slate-700/60 self-start sm:self-auto lg:self-start shrink-0">
+        <div data-html2canvas-ignore="true" className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200 dark:border-slate-700/60 self-start sm:self-auto lg:self-start shrink-0">
           <button
             onClick={() => setViewMode('combined')}
             className={`px-2.5 py-1 text-xs font-semibold rounded-lg whitespace-nowrap transition ${
@@ -129,7 +129,6 @@ export default function ProgressionChart({ progression, selectedSafra, isDark = 
               fontSize={11}
               tickLine={false}
               axisLine={false}
-              unit=" mm"
             />
             {viewMode === 'combined' && (
               <YAxis
@@ -139,8 +138,7 @@ export default function ProgressionChart({ progression, selectedSafra, isDark = 
                 fontSize={11}
                 tickLine={false}
                 axisLine={false}
-                unit=" mm"
-              />
+                />
             )}
             <Tooltip content={<CustomTooltip />} />
             <Legend
@@ -157,6 +155,7 @@ export default function ProgressionChart({ progression, selectedSafra, isDark = 
                 name="Chuva do Mês (mm)"
                 fill={barColor}
                 radius={[6, 6, 0, 0]}
+                isAnimationActive={animate}
                 maxBarSize={40}
               />
             )}
@@ -169,6 +168,7 @@ export default function ProgressionChart({ progression, selectedSafra, isDark = 
                 name="Acumulado da Safra (mm)"
                 stroke={lineColor}
                 strokeWidth={3}
+                isAnimationActive={animate}
                 dot={{ r: 4, fill: lineColor, strokeWidth: 2, stroke: isDark ? '#1A2B31' : '#FCFCFC' }}
                 activeDot={{ r: 6, fill: barColor }}
               />

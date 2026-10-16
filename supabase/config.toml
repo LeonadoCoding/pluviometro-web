@@ -1,0 +1,4 @@
+# A função valida o acesso por conta própria (segredo do webhook ou token do administrador),
+# por isso a verificação automática de JWT do Supabase fica desligada.
+[functions.notify-rain]
+verify_jwt = false
