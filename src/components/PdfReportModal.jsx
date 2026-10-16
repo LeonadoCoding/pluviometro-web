@@ -50,7 +50,7 @@ export default function PdfReportModal({
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-400 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-rain-500/10 dark:bg-rain-500/20 text-rain-600 dark:text-rain-400 flex items-center justify-center">
               <FileText className="w-5 h-5" />
             </div>
             <div>
@@ -108,7 +108,7 @@ export default function PdfReportModal({
             <button
               onClick={handleDownloadPdf}
               disabled={isGenerating}
-              className="w-full py-3 bg-gradient-to-r from-red-600 to-rose-500 hover:from-red-700 hover:to-rose-600 active:scale-[0.98] text-white font-bold text-sm rounded-xl shadow-lg shadow-red-500/25 flex items-center justify-center gap-2 transition disabled:opacity-50"
+              className="w-full py-3 bg-gradient-to-r from-rain-500 to-oilema-flame hover:from-rain-600 hover:to-rain-600 active:scale-[0.98] text-white font-bold text-sm rounded-xl shadow-lg shadow-rain-500/25 flex items-center justify-center gap-2 transition disabled:opacity-50"
             >
               <Download className="w-4 h-4 stroke-[2.5]" />
               <span>{isGenerating ? 'Capturando Gráficos e Gerando PDF...' : 'Baixar Boletim em PDF (c/ Gráficos)'}</span>

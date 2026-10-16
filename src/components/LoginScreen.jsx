@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CloudRain, Lock, User, KeyRound, Check, Eye, EyeOff, ShieldAlert, Sun, Moon } from 'lucide-react';
+import { Lock, User, KeyRound, Check, Eye, EyeOff, ShieldAlert, Sun, Moon } from 'lucide-react';
 import { loginUser } from '../services/auth';
 
 export default function LoginScreen({ onLoginSuccess, theme, onToggleTheme }) {
@@ -28,7 +28,7 @@ export default function LoginScreen({ onLoginSuccess, theme, onToggleTheme }) {
 
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0b1329] text-slate-800 dark:text-slate-100 flex flex-col justify-between p-4 sm:p-6 relative transition-colors selection:bg-rain-500 selection:text-white">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col justify-between p-4 sm:p-6 relative transition-colors selection:bg-rain-500 selection:text-white">
       
       {/* Botão de Tema no Topo */}
       <div className="max-w-md w-full mx-auto flex justify-end">
@@ -40,7 +40,7 @@ export default function LoginScreen({ onLoginSuccess, theme, onToggleTheme }) {
           {theme === 'dark' ? (
             <Sun className="w-4 h-4 text-amber-400" />
           ) : (
-            <Moon className="w-4 h-4 text-sky-600" />
+            <Moon className="w-4 h-4 text-oilema-petrol" />
           )}
         </button>
       </div>
@@ -54,12 +54,12 @@ export default function LoginScreen({ onLoginSuccess, theme, onToggleTheme }) {
 
           {/* Logo & Cabeçalho */}
           <div className="flex flex-col items-center text-center mb-6">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-rain-600 to-sky-400 p-0.5 shadow-xl shadow-rain-500/25 mb-3 flex items-center justify-center">
-              <div className="w-full h-full bg-white dark:bg-slate-900 rounded-[14px] flex items-center justify-center">
-                <CloudRain className="w-7 h-7 text-rain-500 dark:text-rain-400 animate-pulse" />
-              </div>
-            </div>
-            
+            <img
+              src={`${import.meta.env.BASE_URL}logo-oilema.png`}
+              alt="Oilema - Sementes para o novo campo"
+              className="w-52 sm:w-60 h-auto mb-5"
+            />
+
             <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
               PLUVIÔMETRO
               <span className="text-xs px-2 py-0.5 rounded-full bg-rain-500/10 text-rain-600 dark:text-rain-400 border border-rain-500/20 font-bold">
@@ -130,7 +130,7 @@ export default function LoginScreen({ onLoginSuccess, theme, onToggleTheme }) {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3.5 bg-gradient-to-r from-rain-500 to-sky-500 hover:from-rain-600 hover:to-sky-600 active:scale-[0.98] text-white font-bold text-sm rounded-xl shadow-lg shadow-rain-500/25 flex items-center justify-center gap-2 transition disabled:opacity-50"
+                className="w-full py-3.5 bg-gradient-to-r from-rain-500 to-oilema-flame hover:from-rain-600 hover:to-rain-600 active:scale-[0.98] text-white font-bold text-sm rounded-xl shadow-lg shadow-rain-500/25 flex items-center justify-center gap-2 transition disabled:opacity-50"
               >
                 {isLoading ? (
                   <span>Autenticando no servidor...</span>

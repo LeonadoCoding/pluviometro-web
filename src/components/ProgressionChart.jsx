@@ -28,7 +28,7 @@ export default function ProgressionChart({ progression, selectedSafra, isDark = 
           </div>
           <div className="flex justify-between items-center text-slate-600 dark:text-slate-300">
             <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-sky-500 inline-block"></span>
+              <span className="w-2.5 h-2.5 rounded-sm bg-rain-500 inline-block"></span>
               Total do Mês:
             </span>
             <span className="font-bold text-slate-900 dark:text-white">{data.monthTotal.toLocaleString('pt-BR')} mm</span>
@@ -45,11 +45,11 @@ export default function ProgressionChart({ progression, selectedSafra, isDark = 
             <span className="text-slate-700 dark:text-slate-200">{data.daysInMonth} dias ({data.rainyDays} c/ chuva)</span>
           </div>
           <div className="flex justify-between items-center text-slate-600 dark:text-slate-300 border-t border-slate-200 dark:border-slate-800 pt-1.5 mt-1.5">
-            <span className="flex items-center gap-1.5 text-rain-600 dark:text-rain-300">
-              <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block"></span>
+            <span className="flex items-center gap-1.5 text-slate-700 dark:text-slate-200">
+              <span className="w-2.5 h-2.5 rounded-full bg-oilema-petrol dark:bg-slate-300 inline-block"></span>
               Acumulado até o mês:
             </span>
-            <span className="font-extrabold text-rain-700 dark:text-cyan-300">{data.cumulative.toLocaleString('pt-BR')} mm</span>
+            <span className="font-extrabold text-oilema-petrol dark:text-slate-100">{data.cumulative.toLocaleString('pt-BR')} mm</span>
           </div>
         </div>
       );
@@ -57,12 +57,15 @@ export default function ProgressionChart({ progression, selectedSafra, isDark = 
     return null;
   };
 
-  const gridColor = isDark ? '#1e293b' : '#e2e8f0';
-  const axisColor = isDark ? '#64748b' : '#94a3b8';
+  const gridColor = isDark ? '#273B43' : '#DCE3E5';
+  const axisColor = isDark ? '#8DA0A7' : '#627880';
+  // Barras em laranja Oilema; curva acumulada em petróleo (clareada no tema escuro)
+  const barColor = '#F28322';
+  const lineColor = isDark ? '#BCC9CD' : '#385059';
 
   return (
-    <div id="chart-progression-card" className="glass-panel rounded-2xl p-4 sm:p-6 relative transition-colors">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+    <div id="chart-progression-card" className="glass-panel rounded-2xl p-4 sm:p-6 relative transition-colors flex flex-col">
+      <div className="flex flex-col sm:flex-row lg:flex-col sm:items-center lg:items-start justify-between gap-3 mb-4">
         <div>
           <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-rain-600 dark:text-rain-400" />
@@ -74,10 +77,10 @@ export default function ProgressionChart({ progression, selectedSafra, isDark = 
         </div>
 
         {/* Seletor de Modo de Visualização */}
-        <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200 dark:border-slate-700/60 self-start sm:self-auto">
+        <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200 dark:border-slate-700/60 self-start sm:self-auto lg:self-start shrink-0">
           <button
             onClick={() => setViewMode('combined')}
-            className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition ${
+            className={`px-2.5 py-1 text-xs font-semibold rounded-lg whitespace-nowrap transition ${
               viewMode === 'combined'
                 ? 'bg-rain-500 text-white shadow-sm'
                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -87,7 +90,7 @@ export default function ProgressionChart({ progression, selectedSafra, isDark = 
           </button>
           <button
             onClick={() => setViewMode('monthly')}
-            className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition ${
+            className={`px-2.5 py-1 text-xs font-semibold rounded-lg whitespace-nowrap transition ${
               viewMode === 'monthly'
                 ? 'bg-rain-500 text-white shadow-sm'
                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -97,7 +100,7 @@ export default function ProgressionChart({ progression, selectedSafra, isDark = 
           </button>
           <button
             onClick={() => setViewMode('cumulative')}
-            className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition ${
+            className={`px-2.5 py-1 text-xs font-semibold rounded-lg whitespace-nowrap transition ${
               viewMode === 'cumulative'
                 ? 'bg-rain-500 text-white shadow-sm'
                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -109,7 +112,7 @@ export default function ProgressionChart({ progression, selectedSafra, isDark = 
       </div>
 
       {/* Gráfico Recharts */}
-      <div className="w-full h-72 sm:h-80 -ml-2 sm:ml-0">
+      <div className="w-full flex-1 min-h-[18rem] sm:min-h-[20rem] -ml-2 sm:ml-0">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={progression} margin={{ top: 15, right: 15, left: -10, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
@@ -132,7 +135,7 @@ export default function ProgressionChart({ progression, selectedSafra, isDark = 
               <YAxis
                 yAxisId="right"
                 orientation="right"
-                stroke="#0284c7"
+                stroke={lineColor}
                 fontSize={11}
                 tickLine={false}
                 axisLine={false}
@@ -152,7 +155,7 @@ export default function ProgressionChart({ progression, selectedSafra, isDark = 
                 yAxisId="left"
                 dataKey="monthTotal"
                 name="Chuva do Mês (mm)"
-                fill="#0ea5e9"
+                fill={barColor}
                 radius={[6, 6, 0, 0]}
                 maxBarSize={40}
               />
@@ -164,10 +167,10 @@ export default function ProgressionChart({ progression, selectedSafra, isDark = 
                 type="monotone"
                 dataKey="cumulative"
                 name="Acumulado da Safra (mm)"
-                stroke="#0284c7"
+                stroke={lineColor}
                 strokeWidth={3}
-                dot={{ r: 4, fill: '#0284c7', strokeWidth: 2, stroke: '#e0f2fe' }}
-                activeDot={{ r: 6, fill: '#38bdf8' }}
+                dot={{ r: 4, fill: lineColor, strokeWidth: 2, stroke: isDark ? '#1A2B31' : '#FCFCFC' }}
+                activeDot={{ r: 6, fill: barColor }}
               />
             )}
           </ComposedChart>

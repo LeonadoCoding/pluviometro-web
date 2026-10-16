@@ -24,18 +24,18 @@ class ErrorBoundary extends React.Component {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          background: '#0b1329',
-          color: '#f1f5f9',
+          background: '#111E23',
+          color: '#ECF0F1',
           fontFamily: "'Plus Jakarta Sans', sans-serif",
           padding: '2rem',
           textAlign: 'center',
           gap: '1rem'
         }}>
           <div style={{ fontSize: '3rem' }}>🌧️</div>
-          <h1 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#38bdf8' }}>
+          <h1 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#F28322' }}>
             Pluviômetro Oilema
           </h1>
-          <p style={{ color: '#94a3b8', maxWidth: 400 }}>
+          <p style={{ color: '#8DA0A7', maxWidth: 400 }}>
             Ocorreu um erro inesperado ao iniciar o sistema. Tente recarregar a página.
           </p>
           <button
@@ -43,7 +43,7 @@ class ErrorBoundary extends React.Component {
             style={{
               marginTop: '1rem',
               padding: '0.75rem 2rem',
-              background: '#0ea5e9',
+              background: '#F28322',
               color: '#fff',
               border: 'none',
               borderRadius: '0.75rem',
@@ -57,7 +57,7 @@ class ErrorBoundary extends React.Component {
           {import.meta.env.DEV && (
             <pre style={{
               marginTop: '1rem',
-              background: '#1e293b',
+              background: '#1A2B31',
               padding: '1rem',
               borderRadius: '0.5rem',
               fontSize: '0.7rem',

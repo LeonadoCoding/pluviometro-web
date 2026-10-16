@@ -165,7 +165,7 @@ export default function BackupModal({ isOpen, onClose, onDataChanged, isLocalMod
               disabled={isProcessing}
               className="w-full py-2.5 px-3 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-white text-xs font-semibold rounded-lg flex items-center justify-center gap-2 border border-slate-200 dark:border-slate-700 transition"
             >
-              <Upload className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+              <Upload className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
               Selecionar Arquivo JSON
             </button>
           </div>
