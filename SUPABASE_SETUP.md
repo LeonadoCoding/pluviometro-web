@@ -35,7 +35,7 @@ O banco começa vazio e o primeiro login administrativo inicializa os registros 
 ## 5. Avisos de chuva por e-mail (Brevo)
 Cada leitura registrada pode gerar um e-mail automático para uma lista de destinatários, configurada no site pelo ícone de sino (🔔) no cabeçalho (computador/tablet).
 
-Como funciona: ao salvar um registro, um **Database Webhook** do Supabase chama a **Edge Function** `notify-rain`, que lê as configurações e envia o e-mail pelo **Brevo**. A chave do Brevo fica só no Supabase, nunca no site.
+Como funciona: ao salvar um registro, um gatilho no banco chama a **Edge Function** `notify-rain`, que lê as configurações e envia o e-mail pelo **Brevo**. A chave do Brevo fica só no Supabase, nunca no site.
 
 ### 5.1 Brevo
 1. Crie uma conta gratuita em https://www.brevo.com (300 e-mails/dia).
@@ -43,7 +43,9 @@ Como funciona: ao salvar um registro, um **Database Webhook** do Supabase chama 
 3. Em **SMTP & API → API Keys → Generate a new API key**, crie uma chave e copie-a (ela começa com `xkeysib-`).
 
 ### 5.2 Banco de dados
-No **SQL Editor** do Supabase, execute todo o arquivo `supabase/notifications.sql`.
+No **SQL Editor** do Supabase, execute todo o arquivo `supabase/notifications.sql`. Ele cria as tabelas de configuração e histórico, gera um segredo no **Vault** e instala o gatilho que chama a função a cada registro salvo. Não é preciso criar Database Webhook nem copiar segredo manualmente.
+
+> Projeto **Central-Pluviometrica**: este passo já foi aplicado.
 
 ### 5.3 Publicar a função
 **Pelo painel (sem instalar nada):**
@@ -58,24 +60,20 @@ npx supabase link --project-ref SEU_PROJECT_REF
 npx supabase functions deploy notify-rain --no-verify-jwt
 ```
 
+> Projeto **Central-Pluviometrica**: a função já está publicada.
+
+Se usar outro projeto, troque o endereço `https://vnsnolwciccklwlpnoui.supabase.co` dentro de `supabase/notifications.sql` pelo endereço do seu projeto.
+
 ### 5.4 Segredos da função
-Em **Edge Functions → Secrets**, adicione:
+Em **Edge Functions → Secrets** (ou **Project Settings → Edge Functions → Secrets**), adicione:
 | Nome | Valor |
 |---|---|
 | `BREVO_API_KEY` | a chave `xkeysib-...` do passo 5.1 |
 | `BREVO_SENDER_EMAIL` | o remetente confirmado no Brevo |
 | `BREVO_SENDER_NAME` | (opcional) nome exibido, padrão "Pluviômetro Oilema" |
-| `WEBHOOK_SECRET` | uma senha longa aleatória criada por você (use a mesma no passo 5.5) |
 | `SITE_URL` | (opcional) endereço do painel, padrão `https://leonadocoding.github.io/pluviometro-web/` |
 
-### 5.5 Webhook do banco
-1. **Database → Webhooks → Create a new hook** (se pedir, clique em **Enable webhooks**).
-2. Nome: `notify_rain`. Tabela: `rain_records`. Eventos: **Insert** e **Update**.
-3. Tipo: **Supabase Edge Functions**, método **POST**, função **notify-rain**, timeout 5000 ms.
-4. Em **HTTP Headers**, adicione `x-webhook-secret` com o mesmo valor de `WEBHOOK_SECRET`.
-5. Salve.
-
-### 5.6 Ativar no site
+### 5.5 Ativar no site
 1. Entre no painel e clique no sino (🔔) no cabeçalho.
 2. Adicione os destinatários, ligue **Enviar avisos de chuva** e clique em **Salvar**.
 3. Clique em **Enviar teste** e confira a caixa de entrada (e o spam, no primeiro envio).
@@ -86,4 +84,4 @@ Regras de envio configuráveis na tela: volume mínimo para avisar, aviso de cor
 - Nunca publique a chave `service_role`, senhas ou arquivos `.env`.
 - Contas devem ser criadas manualmente no Supabase; não habilite cadastro público para este app administrativo.
 - A tabela só permite escrita a usuários listados em `pluviometro_admins`; a chave pública, sozinha, não concede acesso administrativo.
-- A chave do Brevo e o `WEBHOOK_SECRET` ficam apenas nos segredos das Edge Functions; nunca os coloque no GitHub.
+- A chave do Brevo fica apenas nos segredos das Edge Functions e o segredo do gatilho fica no Vault do Supabase; nunca os coloque no GitHub.

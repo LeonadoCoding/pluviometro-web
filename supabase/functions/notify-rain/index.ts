@@ -1,12 +1,12 @@
 // Edge Function: envia aviso de chuva por e-mail (Brevo) quando um registro é salvo.
 //
 // Chamada de duas formas:
-//  1. Database Webhook do Supabase (INSERT/UPDATE em rain_records), com o cabeçalho
-//     "x-webhook-secret" igual ao segredo WEBHOOK_SECRET.
+//  1. Gatilho do banco (INSERT/UPDATE em rain_records, ver supabase/notifications.sql), com o
+//     cabeçalho "x-webhook-secret" igual ao segredo guardado no Vault do Supabase.
 //  2. Pelo site (botão "Enviar e-mail de teste"), com o token do administrador logado.
 //
 // Segredos necessários (Edge Functions → Secrets):
-//  BREVO_API_KEY, BREVO_SENDER_EMAIL, WEBHOOK_SECRET
+//  BREVO_API_KEY, BREVO_SENDER_EMAIL
 // Opcionais: BREVO_SENDER_NAME, SITE_URL
 // SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY já existem automaticamente.
 
@@ -149,9 +149,38 @@ async function handleTest(req: Request) {
   }
 }
 
+async function hasValidWebhookSecret(req: Request) {
+  // O segredo fica no Vault; a comparação é feita no banco (função acessível só à chave de serviço)
+  const candidate = req.headers.get('x-webhook-secret') ?? '';
+  if (!candidate) return false;
+  const { data: valid, error } = await admin.rpc('verify_notify_rain_secret', { candidate });
+  if (error) throw new Error(`Falha ao validar o segredo: ${error.message}`);
+  return Boolean(valid);
+}
+
+// Diagnóstico de entrega: consulta no Brevo os últimos eventos, remetentes e situação da conta
+async function handleDiagnose() {
+  const headers = { 'api-key': Deno.env.get('BREVO_API_KEY') ?? '', accept: 'application/json' };
+  const get = async (path: string) => {
+    const res = await fetch(`https://api.brevo.com/v3${path}`, { headers });
+    return { status: res.status, body: await res.json().catch(() => null) };
+  };
+  const [events, senders, account] = await Promise.all([
+    get('/smtp/statistics/events?limit=30&sort=desc&days=2'),
+    get('/senders'),
+    get('/account')
+  ]);
+  return json({
+    sender_env: Deno.env.get('BREVO_SENDER_EMAIL'),
+    events,
+    senders,
+    account: { status: account.status, plan: account.body?.plan, relay: account.body?.relay }
+  });
+}
+
 async function handleWebhook(req: Request, payload: any) {
-  const secret = Deno.env.get('WEBHOOK_SECRET');
-  if (!secret || req.headers.get('x-webhook-secret') !== secret) return json({ error: 'Não autorizado.' }, 401);
+  if (!(await hasValidWebhookSecret(req))) return json({ error: 'Não autorizado.' }, 401);
+  if (payload.type === 'diagnose') return handleDiagnose();
   if (payload.table !== 'rain_records' || !['INSERT', 'UPDATE'].includes(payload.type)) return json({ skipped: 'evento ignorado' });
 
   const record = payload.record as RainRecord;
