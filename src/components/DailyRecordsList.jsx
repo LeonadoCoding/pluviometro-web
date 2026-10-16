@@ -35,8 +35,8 @@ export default function DailyRecordsList({
   };
 
   return (
-    <div className="glass-panel rounded-2xl p-4 sm:p-5 relative transition-colors">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+    <div className="glass-panel rounded-2xl p-4 sm:p-6 relative transition-colors">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <div>
           <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <ListFilter className="w-5 h-5 text-rain-600 dark:text-rain-400" />

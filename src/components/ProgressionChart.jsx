@@ -64,8 +64,8 @@ export default function ProgressionChart({ progression, selectedSafra, isDark = 
   const lineColor = isDark ? '#BCC9CD' : '#385059';
 
   return (
-    <div id="chart-progression-card" className="glass-panel rounded-2xl p-4 sm:p-6 relative transition-colors">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+    <div id="chart-progression-card" className="glass-panel rounded-2xl p-4 sm:p-6 relative transition-colors flex flex-col">
+      <div className="flex flex-col sm:flex-row lg:flex-col sm:items-center lg:items-start justify-between gap-3 mb-4">
         <div>
           <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-rain-600 dark:text-rain-400" />
@@ -77,10 +77,10 @@ export default function ProgressionChart({ progression, selectedSafra, isDark = 
         </div>
 
         {/* Seletor de Modo de Visualização */}
-        <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200 dark:border-slate-700/60 self-start sm:self-auto">
+        <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200 dark:border-slate-700/60 self-start sm:self-auto lg:self-start shrink-0">
           <button
             onClick={() => setViewMode('combined')}
-            className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition ${
+            className={`px-2.5 py-1 text-xs font-semibold rounded-lg whitespace-nowrap transition ${
               viewMode === 'combined'
                 ? 'bg-rain-500 text-white shadow-sm'
                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -90,7 +90,7 @@ export default function ProgressionChart({ progression, selectedSafra, isDark = 
           </button>
           <button
             onClick={() => setViewMode('monthly')}
-            className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition ${
+            className={`px-2.5 py-1 text-xs font-semibold rounded-lg whitespace-nowrap transition ${
               viewMode === 'monthly'
                 ? 'bg-rain-500 text-white shadow-sm'
                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -100,7 +100,7 @@ export default function ProgressionChart({ progression, selectedSafra, isDark = 
           </button>
           <button
             onClick={() => setViewMode('cumulative')}
-            className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition ${
+            className={`px-2.5 py-1 text-xs font-semibold rounded-lg whitespace-nowrap transition ${
               viewMode === 'cumulative'
                 ? 'bg-rain-500 text-white shadow-sm'
                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -112,7 +112,7 @@ export default function ProgressionChart({ progression, selectedSafra, isDark = 
       </div>
 
       {/* Gráfico Recharts */}
-      <div className="w-full h-72 sm:h-80 -ml-2 sm:ml-0">
+      <div className="w-full flex-1 min-h-[18rem] sm:min-h-[20rem] -ml-2 sm:ml-0">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={progression} margin={{ top: 15, right: 15, left: -10, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />

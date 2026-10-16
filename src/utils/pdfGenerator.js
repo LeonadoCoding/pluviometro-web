@@ -68,12 +68,15 @@ async function captureElementAsImage(elementId) {
 
   const originalWidth = el.style.width;
   const originalMaxWidth = el.style.maxWidth;
+  const originalAlignSelf = el.style.alignSelf;
 
   try {
     // Padroniza a largura temporariamente para proporção ideal de relatório (740px)
     // Isso garante que tanto no smartphone quanto no computador o gráfico seja capturado na proporção perfeita
     el.style.width = '740px';
     el.style.maxWidth = '740px';
+    // Evita que o card seja esticado pela grade (altura do card vizinho) durante a captura
+    el.style.alignSelf = 'start';
     window.dispatchEvent(new Event('resize'));
 
     // Aguarda o Recharts recomputar as dimensões do SVG e concluir a animação das linhas
@@ -99,6 +102,7 @@ async function captureElementAsImage(elementId) {
     // Restaura o layout responsivo original da página
     el.style.width = originalWidth;
     el.style.maxWidth = originalMaxWidth;
+    el.style.alignSelf = originalAlignSelf;
     window.dispatchEvent(new Event('resize'));
   }
 }
@@ -258,7 +262,7 @@ export async function generatePluviometroPDF({
   doc.text('2. ANÁLISE GRÁFICA: PROGRESSO E HISTÓRICO SOBREPOSTO', margin, y);
   y += 4;
 
-  const maxChartH = 94; // Altura máxima permitida para cada gráfico
+  const maxChartH = 106; // Altura máxima permitida para cada gráfico
 
   // Inserção do Gráfico 1 (Progresso Pluviométrico) com proporção preservada
   if (chartProgression) {
