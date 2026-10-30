@@ -26,14 +26,62 @@ function saveSession(session) {
   safeSet(TOKEN_KEY, JSON.stringify(session));
   const user = session?.user;
   if (user) {
+    // Preserva o perfil já conhecido (a renovação do token não traz o perfil do Pluviômetro)
+    let known = null;
+    try { known = JSON.parse(safeGet(USER_KEY) || 'null'); } catch { known = null; }
+    const role = known?.id === user.id ? known.role : undefined;
     safeSet(USER_KEY, JSON.stringify({
       id: user.id,
       email: user.email,
       username: user.email,
       name: user.user_metadata?.name || user.email?.split('@')[0] || 'Administrador',
-      isAdmin: true
+      role,
+      isAdmin: role ? role === 'admin' : true
     }));
   }
+}
+
+// Perfis de acesso: admin, alimentador, visualizador (ver supabase/users.sql)
+export const ROLE_LABELS = { admin: 'Admin', alimentador: 'Alimentador', visualizador: 'Visualizador' };
+
+export function getPermissions(user) {
+  const role = user?.role || (user?.isAdmin ? 'admin' : 'visualizador');
+  const isAdmin = role === 'admin';
+  return {
+    role,
+    roleLabel: ROLE_LABELS[role] || 'Visualizador',
+    isAdmin,
+    canLaunchRain: isAdmin || role === 'alimentador',
+    canDeleteRain: isAdmin,
+    canChangePassword: isAdmin,
+    canImportData: isAdmin,
+    canConfigureAlerts: isAdmin,
+    canManageUsers: isAdmin
+  };
+}
+
+async function fetchRole(accessToken) {
+  const { url, anonKey } = getSupabaseConfig();
+  const response = await fetch(`${url}/rest/v1/rpc/pluviometro_role`, {
+    method: 'POST',
+    headers: { apikey: anonKey, Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: '{}'
+  });
+  if (!response.ok) throw new Error('Não foi possível verificar o seu perfil de acesso.');
+  const role = await response.json().catch(() => null);
+  return typeof role === 'string' ? role : null;
+}
+
+// Atualiza o perfil do usuário logado (ex.: alterado por um administrador). null = sem acesso.
+export async function refreshCurrentUserRole() {
+  const user = getCurrentUser();
+  const token = await getValidAccessToken();
+  if (!user || !token) return null;
+  const role = await fetchRole(token);
+  if (!role) return null;
+  const updated = { ...user, role, isAdmin: role === 'admin' };
+  safeSet(USER_KEY, JSON.stringify(updated));
+  return updated;
 }
 export function getToken() {
   return readSession()?.access_token || null;
@@ -97,20 +145,14 @@ export async function loginUser(email, password) {
   const session = { ...data, expires_at: data.expires_at || Math.floor(Date.now() / 1000) + (data.expires_in || 3600) };
   saveSession(session);
 
-  // Acesso só para usuários explicitamente cadastrados como administradores no banco.
-  const { url, anonKey } = getSupabaseConfig();
-  const check = await fetch(`${url}/rest/v1/rpc/is_pluviometro_admin`, {
-    method: 'POST',
-    headers: { apikey: anonKey, Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-    body: '{}'
-  });
-  const isAdmin = check.ok ? await check.json().catch(() => false) : false;
-  if (isAdmin !== true) {
+  // Acesso só para usuários cadastrados no Pluviômetro (admin, alimentador ou visualizador).
+  const role = await fetchRole(session.access_token).catch(() => null);
+  if (!role) {
     await authRequest('logout', {}, session.access_token).catch(() => {});
     logoutUser();
-    throw new Error('Este usuário ainda não foi autorizado como administrador. Execute o passo de cadastro de administrador no SQL Editor do Supabase.');
+    throw new Error('Este usuário ainda não tem acesso ao Pluviômetro. Peça a um administrador para cadastrá-lo.');
   }
-  const user = { id: data.user.id, email: data.user.email, username: data.user.email, name: data.user.user_metadata?.name || data.user.email, isAdmin: true };
+  const user = { id: data.user.id, email: data.user.email, username: data.user.email, name: data.user.user_metadata?.name || data.user.email, role, isAdmin: role === 'admin' };
   safeSet(USER_KEY, JSON.stringify(user));
   return { success: true, user };
 }

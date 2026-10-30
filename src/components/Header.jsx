@@ -12,7 +12,8 @@ import {
   LogOut,
   UserCheck,
   Key,
-  Bell
+  Bell,
+  Users
 } from 'lucide-react';
 
 export default function Header({
@@ -23,6 +24,8 @@ export default function Header({
   onOpenQuickEntry,
   onOpenBackup,
   onOpenNotifications,
+  onOpenUsers,
+  permissions = {},
   onOpenPdfReport,
   onOpenLogin,
   onOpenChangePassword,
@@ -118,14 +121,27 @@ export default function Header({
               <HardDriveDownload className="w-4 h-4" />
             </button>
 
-            {/* Botão de Avisos por E-mail */}
-            <button
-              onClick={onOpenNotifications}
-              title="Avisos de chuva por e-mail"
-              className="h-9 w-9 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-700/60 transition active:scale-95 hidden sm:flex"
-            >
-              <Bell className="w-4 h-4" />
-            </button>
+            {/* Botão de Avisos por E-mail (somente administradores) */}
+            {permissions.canConfigureAlerts && (
+              <button
+                onClick={onOpenNotifications}
+                title="Avisos de chuva por e-mail"
+                className="h-9 w-9 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-700/60 transition active:scale-95 hidden sm:flex"
+              >
+                <Bell className="w-4 h-4" />
+              </button>
+            )}
+
+            {/* Botão de Usuários (somente administradores) */}
+            {permissions.canManageUsers && (
+              <button
+                onClick={onOpenUsers}
+                title="Usuários do Pluviômetro"
+                className="h-9 w-9 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-700/60 transition active:scale-95 hidden sm:flex"
+              >
+                <Users className="w-4 h-4" />
+              </button>
+            )}
 
             {/* Botão de Atualizar */}
             <button
@@ -141,18 +157,20 @@ export default function Header({
             {currentUser ? (
               <div className="h-9 flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-2.5 sm:px-3 rounded-lg border border-slate-200 dark:border-slate-700/60 text-xs font-semibold">
                 <UserCheck className="w-3.5 h-3.5 text-emerald-500 hidden sm:block" />
-                <span className="hidden sm:inline">Admin</span>
-                <button
-                  onClick={onOpenChangePassword}
-                  title="Alterar Senha de Acesso"
-                  className="ml-1 sm:pl-2 sm:border-l border-slate-200 dark:border-slate-700 p-0.5 text-slate-500 hover:text-rain-600 dark:text-slate-400 dark:hover:text-rain-400 transition"
-                >
-                  <Key className="w-3.5 h-3.5" />
-                </button>
+                <span className="hidden sm:inline">{permissions.roleLabel || 'Admin'}</span>
+                {permissions.canChangePassword && (
+                  <button
+                    onClick={onOpenChangePassword}
+                    title="Alterar Senha de Acesso"
+                    className="ml-1 sm:pl-2 sm:border-l border-slate-200 dark:border-slate-700 p-0.5 text-slate-500 hover:text-rain-600 dark:text-slate-400 dark:hover:text-rain-400 transition"
+                  >
+                    <Key className="w-3.5 h-3.5" />
+                  </button>
+                )}
                 <button
                   onClick={onLogout}
                   title="Sair do Sistema"
-                  className="p-0.5 text-slate-500 hover:text-red-500 dark:text-slate-400 dark:hover:text-red-400 transition"
+                  className={`${permissions.canChangePassword ? '' : 'ml-1 sm:pl-2 sm:border-l border-slate-200 dark:border-slate-700 '}p-0.5 text-slate-500 hover:text-red-500 dark:text-slate-400 dark:hover:text-red-400 transition`}
                 >
                   <LogOut className="w-3.5 h-3.5" />
                 </button>
@@ -168,15 +186,17 @@ export default function Header({
               </button>
             )}
 
-            {/* Botão Principal de Lançamento */}
-            <button
-              onClick={onOpenQuickEntry}
-              className="hidden sm:flex h-9 items-center gap-1.5 px-4 bg-gradient-to-r from-rain-500 to-oilema-flame hover:from-rain-600 hover:to-rain-600 text-white font-semibold text-xs sm:text-sm rounded-lg shadow-lg shadow-rain-500/25 transition active:scale-95"
-            >
-              <Plus className="w-4 h-4 stroke-[2.5]" />
-              <span className="hidden sm:inline">Lançar Chuva</span>
-              <span className="sm:hidden">Lançar</span>
-            </button>
+            {/* Botão Principal de Lançamento (admin e alimentador) */}
+            {permissions.canLaunchRain && (
+              <button
+                onClick={onOpenQuickEntry}
+                className="hidden sm:flex h-9 items-center gap-1.5 px-4 bg-gradient-to-r from-rain-500 to-oilema-flame hover:from-rain-600 hover:to-rain-600 text-white font-semibold text-xs sm:text-sm rounded-lg shadow-lg shadow-rain-500/25 transition active:scale-95"
+              >
+                <Plus className="w-4 h-4 stroke-[2.5]" />
+                <span className="hidden sm:inline">Lançar Chuva</span>
+                <span className="sm:hidden">Lançar</span>
+              </button>
+            )}
 
           </div>
 

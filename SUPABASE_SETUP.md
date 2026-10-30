@@ -80,8 +80,32 @@ Em **Edge Functions → Secrets** (ou **Project Settings → Edge Functions → 
 
 Regras de envio configuráveis na tela: volume mínimo para avisar, aviso de correções e prazo máximo da leitura (padrão 3 dias). O prazo evita que importar um backup ou usar **Restaurar base** dispare centenas de e-mails. O histórico dos últimos envios, inclusive falhas e o motivo, aparece na própria tela.
 
+## 6. Usuários e perfis de acesso
+O painel tem três perfis:
+
+| Perfil | Pode |
+|---|---|
+| **Administrador** | Tudo: lançar, editar e excluir chuvas, importar e restaurar dados, configurar avisos por e-mail, alterar a própria senha e gerenciar usuários. |
+| **Alimentador** | Ver todos os indicadores, gerar o PDF, exportar os dados e lançar ou corrigir chuvas. Não exclui registros, não importa dados, não altera senha e não configura avisos. |
+| **Visualizador** | Ver todos os indicadores, gerar o PDF e exportar os dados. Não lança chuvas. |
+
+As regras valem no banco (RLS), não só na tela: um visualizador não consegue gravar chuvas nem chamando a API diretamente.
+
+### 6.1 Instalação
+1. No **SQL Editor**, execute `supabase/users.sql`. Os administradores já cadastrados em `pluviometro_admins` continuam administradores.
+2. Publique a função `manage-users` (`supabase/functions/manage-users/index.ts`) como no passo 5.3, com **Verify JWT desligado** (ela confere sozinha se quem chama é administrador).
+
+> Projeto **Central-Pluviometrica**: os dois passos já foram aplicados.
+
+### 6.2 Uso
+1. Entre como administrador e clique no ícone de **usuários** no cabeçalho (computador ou tablet).
+2. Em **Novo usuário**, informe nome, e-mail, senha inicial (mínimo 8 caracteres) e perfil, e clique em **Criar usuário**. Envie o e-mail e a senha à pessoa.
+3. Na lista, troque o perfil pelo seletor, defina uma nova senha pela chave ou remova o usuário pela lixeira (remove também a conta de login).
+
+Como visualizadores e alimentadores não alteram a própria senha, é o administrador quem define uma nova senha quando necessário. O painel não deixa remover nem rebaixar o último administrador, nem alterar o próprio perfil.
+
 ## Segurança
 - Nunca publique a chave `service_role`, senhas ou arquivos `.env`.
 - Contas devem ser criadas manualmente no Supabase; não habilite cadastro público para este app administrativo.
-- A tabela só permite escrita a usuários listados em `pluviometro_admins`; a chave pública, sozinha, não concede acesso administrativo.
+- Só usuários cadastrados em `pluviometro_users` acessam os dados; o perfil de cada um define o que pode gravar. A chave pública, sozinha, não concede acesso.
 - A chave do Brevo fica apenas nos segredos das Edge Functions e o segredo do gatilho fica no Vault do Supabase; nunca os coloque no GitHub.

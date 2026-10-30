@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { X, HardDriveDownload, Download, Upload, RotateCcw, Check, AlertTriangle } from 'lucide-react';
 import { exportAllData, importDataBatch, resetDatabaseToSeed } from '../services/api';
 
-export default function BackupModal({ isOpen, onClose, onDataChanged, isLocalMode }) {
+export default function BackupModal({ isOpen, onClose, onDataChanged, isLocalMode, canImportData = true }) {
   const [statusMsg, setStatusMsg] = useState(null);
   const [isResetConfirming, setIsResetConfirming] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -145,6 +145,8 @@ export default function BackupModal({ isOpen, onClose, onDataChanged, isLocalMod
             </div>
           </div>
 
+          {/* Importar e restaurar: somente administradores */}
+          {canImportData && (<>
           {/* Importar Dados */}
           <div className="bg-slate-50 dark:bg-slate-950/60 rounded-2xl p-4 border border-slate-200 dark:border-slate-800">
             <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
@@ -210,6 +212,7 @@ export default function BackupModal({ isOpen, onClose, onDataChanged, isLocalMod
               </div>
             )}
           </div>
+          </>)}
 
         </div>
 
