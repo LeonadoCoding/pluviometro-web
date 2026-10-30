@@ -132,8 +132,9 @@ async function handleTest(req: Request) {
   if (!token) return json({ error: 'Não autenticado.' }, 401);
   const { data: userData, error: userError } = await admin.auth.getUser(token);
   if (userError || !userData?.user) return json({ error: 'Sessão inválida.' }, 401);
-  const { data: isAdmin } = await admin.from('pluviometro_admins').select('user_id').eq('user_id', userData.user.id).maybeSingle();
-  if (!isAdmin) return json({ error: 'Apenas administradores podem enviar testes.' }, 403);
+  const { data: member } = await admin.from('pluviometro_users').select('role').eq('user_id', userData.user.id).maybeSingle();
+  const { data: legacyAdmin } = await admin.from('pluviometro_admins').select('user_id').eq('user_id', userData.user.id).maybeSingle();
+  if (member?.role !== 'admin' && !legacyAdmin) return json({ error: 'Apenas administradores podem enviar testes.' }, 403);
 
   const settings = await loadSettings();
   if (!settings.recipients?.length) return json({ error: 'Cadastre pelo menos um destinatário.' }, 400);

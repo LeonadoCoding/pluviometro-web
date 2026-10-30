@@ -4,7 +4,8 @@ import { LayoutDashboard, TrendingUp, Plus, GitCompare, ListFilter } from 'lucid
 export default function MobileBottomNav({
   activeTab,
   onSelectTab,
-  onOpenQuickEntry
+  onOpenQuickEntry,
+  canLaunchRain = true
 }) {
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 sm:hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 px-2 py-1.5 flex items-center justify-around safe-area-pb transition-colors shadow-lg">
@@ -29,13 +30,15 @@ export default function MobileBottomNav({
         <span className="text-[10px]">Diário</span>
       </button>
 
-      {/* Botão de Lançar Chuva em Destaque Central */}
-      <button
-        onClick={onOpenQuickEntry}
-        className="-mt-5 w-12 h-12 rounded-full bg-gradient-to-tr from-oilema-flame to-rain-400 text-white flex items-center justify-center shadow-lg shadow-rain-500/40 active:scale-95 transition"
-      >
-        <Plus className="w-6 h-6 stroke-[3]" />
-      </button>
+      {/* Botão de Lançar Chuva em Destaque Central (admin e alimentador) */}
+      {canLaunchRain && (
+        <button
+          onClick={onOpenQuickEntry}
+          className="-mt-5 w-12 h-12 rounded-full bg-gradient-to-tr from-oilema-flame to-rain-400 text-white flex items-center justify-center shadow-lg shadow-rain-500/40 active:scale-95 transition"
+        >
+          <Plus className="w-6 h-6 stroke-[3]" />
+        </button>
+      )}
 
       <button
         onClick={() => onSelectTab('charts')}

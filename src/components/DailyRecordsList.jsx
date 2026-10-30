@@ -6,7 +6,9 @@ export default function DailyRecordsList({
   records,
   selectedSafra,
   onEditRecord,
-  onDeleteRecord
+  onDeleteRecord,
+  canEdit = true,
+  canDelete = true
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSafra, setFilterSafra] = useState(selectedSafra || 'all');
@@ -113,22 +115,28 @@ export default function DailyRecordsList({
                     {record.rain_mm.toLocaleString('pt-BR', { minimumFractionDigits: 1 })} mm
                   </span>
 
-                  <div className="flex items-center opacity-70 group-hover:opacity-100 transition">
-                    <button
-                      onClick={() => onEditRecord(record)}
-                      title="Editar registro"
-                      className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded hover:bg-slate-200 dark:hover:bg-slate-700/60"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => onDeleteRecord(record)}
-                      title="Excluir registro"
-                      className="p-1 text-slate-400 hover:text-red-500 rounded hover:bg-slate-200 dark:hover:bg-slate-700/60"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                  {(canEdit || canDelete) && (
+                    <div className="flex items-center opacity-70 group-hover:opacity-100 transition">
+                      {canEdit && (
+                        <button
+                          onClick={() => onEditRecord(record)}
+                          title="Editar registro"
+                          className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded hover:bg-slate-200 dark:hover:bg-slate-700/60"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          onClick={() => onDeleteRecord(record)}
+                          title="Excluir registro"
+                          className="p-1 text-slate-400 hover:text-red-500 rounded hover:bg-slate-200 dark:hover:bg-slate-700/60"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

@@ -8,6 +8,7 @@ import DailyRecordsList from './components/DailyRecordsList';
 import QuickEntryModal from './components/QuickEntryModal';
 import BackupModal from './components/BackupModal';
 import NotificationsModal from './components/NotificationsModal';
+import UsersModal from './components/UsersModal';
 import LoginModal from './components/LoginModal';
 import LoginScreen from './components/LoginScreen';
 import ChangePasswordModal from './components/ChangePasswordModal';
@@ -16,7 +17,7 @@ import MobileBottomNav from './components/MobileBottomNav';
 
 import { getInitialTheme, applyTheme } from './utils/theme';
 import { PDF_CAPTURE_EVENT } from './utils/pdfGenerator';
-import { getCurrentUser, logoutUser, isAuthenticated } from './services/auth';
+import { getCurrentUser, logoutUser, isAuthenticated, getPermissions, refreshCurrentUserRole } from './services/auth';
 import {
   checkBackendConnection,
   fetchDashboardData,
@@ -45,6 +46,7 @@ export default function App() {
   const [editingRecord, setEditingRecord] = useState(null);
   const [isBackupOpen, setIsBackupOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isUsersOpen, setIsUsersOpen] = useState(false);
   const [isPdfOpen, setIsPdfOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState('dashboard');
   const [toastMsg, setToastMsg] = useState(null);
@@ -112,6 +114,26 @@ export default function App() {
     }
   }, [currentUser]);
 
+  // Perfil de acesso (admin, alimentador, visualizador): conferido no banco a cada abertura do painel
+  const permissions = getPermissions(currentUser);
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    refreshCurrentUserRole()
+      .then((updated) => {
+        if (!updated) {
+          logoutUser();
+          setCurrentUser(null);
+          return;
+        }
+        if (updated.role !== currentUser.role) setCurrentUser(updated);
+      })
+      .catch(() => { /* sem conexão: mantém o perfil já conhecido */ });
+  }, [currentUser?.id]);
+
+  const denyForRole = (action) => {
+    showToast(`Seu perfil (${permissions.roleLabel}) não permite ${action}.`);
+  };
+
   const handleSelectSafra = (safra) => {
     setSelectedSafra(safra);
     loadData(safra);
@@ -124,6 +146,10 @@ export default function App() {
       setIsLoginOpen(true);
       return;
     }
+    if (!permissions.canLaunchRain) {
+      denyForRole('lançar chuvas');
+      return;
+    }
     setEditingRecord(null);
     setIsQuickEntryOpen(true);
   };
@@ -131,6 +157,10 @@ export default function App() {
   const handleSaveRain = async (recordData) => {
     if (!isAuthenticated()) {
       setIsLoginOpen(true);
+      return;
+    }
+    if (!permissions.canLaunchRain) {
+      denyForRole('lançar chuvas');
       return;
     }
     try {
@@ -151,6 +181,10 @@ export default function App() {
       setIsLoginOpen(true);
       return;
     }
+    if (!permissions.canDeleteRain) {
+      denyForRole('excluir registros');
+      return;
+    }
     if (window.confirm(`Deseja excluir o registro de ${record.rain_mm} mm do dia ${record.date}?`)) {
       try {
         await deleteRainRecord(record);
@@ -166,6 +200,10 @@ export default function App() {
     if (!isAuthenticated()) {
       showToast('Autentique-se para editar registros.');
       setIsLoginOpen(true);
+      return;
+    }
+    if (!permissions.canLaunchRain) {
+      denyForRole('editar registros');
       return;
     }
     setEditingRecord(record);
@@ -214,6 +252,8 @@ export default function App() {
         onOpenQuickEntry={handleOpenQuickEntry}
         onOpenBackup={() => setIsBackupOpen(true)}
         onOpenNotifications={() => setIsNotificationsOpen(true)}
+        onOpenUsers={() => setIsUsersOpen(true)}
+        permissions={permissions}
         onOpenPdfReport={() => setIsPdfOpen(true)}
         onOpenLogin={() => setIsLoginOpen(true)}
         onOpenChangePassword={() => setIsChangePasswordOpen(true)}
@@ -266,6 +306,8 @@ export default function App() {
             selectedSafra={selectedSafra}
             onEditRecord={handleEditRain}
             onDeleteRecord={handleDeleteRain}
+            canEdit={permissions.canLaunchRain}
+            canDelete={permissions.canDeleteRain}
           />
         </section>
 
@@ -333,11 +375,12 @@ export default function App() {
         onClose={() => setIsBackupOpen(false)}
         onDataChanged={() => loadData(selectedSafra)}
         isLocalMode={isLocalMode}
+        canImportData={permissions.canImportData}
       />
 
       {/* Modal de Avisos por E-mail */}
       <NotificationsModal
-        isOpen={isNotificationsOpen}
+        isOpen={isNotificationsOpen && permissions.canConfigureAlerts}
         onClose={() => setIsNotificationsOpen(false)}
       />
 
@@ -352,8 +395,15 @@ export default function App() {
       />
 
       {/* Modal de Alteração de Senha */}
+      {/* Modal de Usuários (somente administradores) */}
+      <UsersModal
+        isOpen={isUsersOpen && permissions.canManageUsers}
+        onClose={() => setIsUsersOpen(false)}
+        currentUser={currentUser}
+      />
+
       <ChangePasswordModal
-        isOpen={isChangePasswordOpen}
+        isOpen={isChangePasswordOpen && permissions.canChangePassword}
         onClose={() => setIsChangePasswordOpen(false)}
         onSuccess={() => showToast('Senha de acesso alterada com sucesso!')}
       />
@@ -376,6 +426,7 @@ export default function App() {
         activeTab={mobileTab}
         onSelectTab={setMobileTab}
         onOpenQuickEntry={handleOpenQuickEntry}
+        canLaunchRain={permissions.canLaunchRain}
       />
 
     </div>
