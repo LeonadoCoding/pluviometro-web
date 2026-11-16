@@ -120,7 +120,7 @@ As previsões são estimativas de modelos e não substituem a leitura do pluviô
 A função guarda a previsão por 1 hora: no máximo 24 consultas por dia à OpenWeatherMap, muito abaixo do limite gratuito. Se a OpenWeatherMap falhar, usa a última previsão guardada.
 
 ### 7.2 Coordenadas da UBS
-Mapa e tabela da Windy: `src/config/location.js`. Resumo: padrão da função (`FORECAST_LAT`/`FORECAST_LON` para mudar). Hoje ambos usam a UBS Placas: -11.834958, -46.293266.
+Mapa e tabela da Windy: `src/config/location.js`, que também define a cidade de referência exibida no aviso da previsão (Novo Jardim/TO, a 36 km da UBS). Resumo: padrão da função (`FORECAST_LAT`/`FORECAST_LON` para mudar). Hoje ambos usam a UBS Placas: -11.834958, -46.293266.
 
 ## Segurança
 - Nunca publique a chave `service_role`, senhas ou arquivos `.env`.

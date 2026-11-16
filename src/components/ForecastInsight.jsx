@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { CloudRain, Sun } from 'lucide-react';
 import { fetchRainForecast } from '../services/forecast';
 import { getTodayDateStr } from '../utils/dates';
+import { REFERENCE_TOWN } from '../config/location';
 
 const WEEKDAYS = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
 
@@ -17,6 +18,24 @@ function dayLabel(date, today) {
   const weekday = new Date(`${date}T12:00:00`).getDay();
   const prep = weekday === 0 || weekday === 6 ? 'no' : 'na';
   return `${prep} ${WEEKDAYS[weekday]}, ${date.slice(8, 10)}/${date.slice(5, 7)}`;
+}
+
+// Distância em km entre dois pontos (fórmula de haversine)
+function distanceKm(a, b) {
+  const rad = (x) => (x * Math.PI) / 180;
+  const h = Math.sin(rad(b.lat - a.lat) / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(rad(b.lon - a.lon) / 2) ** 2;
+  return 6371 * 2 * Math.asin(Math.sqrt(h));
+}
+
+// "11,835° S, 46,293° O"
+const fmtCoord = (value, pos, neg) =>
+  `${Math.abs(value).toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}° ${value < 0 ? neg : pos}`;
+
+// Posição realmente usada pela previsão, com a cidade de referência
+export function describeForecastPosition(location) {
+  if (!location || !Number.isFinite(location.lat) || !Number.isFinite(location.lon)) return null;
+  const km = Math.round(distanceKm(location, REFERENCE_TOWN));
+  return `coordenadas da UBS (${fmtCoord(location.lat, 'N', 'S')}, ${fmtCoord(location.lon, 'L', 'O')}), a ${km} km de ${REFERENCE_TOWN.name}`;
 }
 
 // Resumo prático da previsão, a partir dos dias resumidos pela função rain-forecast
@@ -49,11 +68,16 @@ export function buildForecastInsight(days, today) {
 
 export default function ForecastInsight({ mapAnchorId }) {
   const [insight, setInsight] = useState(null);
+  const [position, setPosition] = useState(null);
 
   useEffect(() => {
     let active = true;
     fetchRainForecast()
-      .then((data) => { if (active) setInsight(buildForecastInsight(data.days, getTodayDateStr())); })
+      .then((data) => {
+        if (!active) return;
+        setInsight(buildForecastInsight(data.days, getTodayDateStr()));
+        setPosition(describeForecastPosition(data.location));
+      })
       .catch((err) => console.warn('Previsão indisponível:', err.message)); // sem previsão, o cabeçalho fica como antes
     return () => { active = false; };
   }, []);
@@ -75,7 +99,7 @@ export default function ForecastInsight({ mapAnchorId }) {
           {insight.detail && <> • {insight.detail}</>}
         </p>
         <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-          Previsão OpenWeather •{' '}
+          Previsão OpenWeather{position ? ` para as ${position}` : ''} •{' '}
           <a href={`#${mapAnchorId}`} onClick={goToMap} className="font-semibold text-rain-600 dark:text-rain-400 hover:underline whitespace-nowrap">
             ver detalhes no mapa
           </a>
