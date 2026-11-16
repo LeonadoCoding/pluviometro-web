@@ -1,7 +1,6 @@
-// Coordenadas usadas no mapa da Windy. A previsão (Edge Function rain-forecast)
-// usa FORECAST_LAT/FORECAST_LON no Supabase; mantenha os dois iguais.
+// Coordenadas da UBS usadas no mapa e na tabela de previsão da Windy.
 export const UBS_LOCATION = {
-  lat: -12.15,
-  lon: -45.0,
+  lat: -11.834958,
+  lon: -46.293266,
   label: 'UBS Placas • Barreiras/BA'
 };

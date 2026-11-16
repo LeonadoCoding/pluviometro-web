@@ -9,7 +9,6 @@ import QuickEntryModal from './components/QuickEntryModal';
 import BackupModal from './components/BackupModal';
 import NotificationsModal from './components/NotificationsModal';
 import UsersModal from './components/UsersModal';
-import RainForecastCard from './components/RainForecastCard';
 import WindyMapCard from './components/WindyMapCard';
 import LoginModal from './components/LoginModal';
 import LoginScreen from './components/LoginScreen';
@@ -345,9 +344,8 @@ export default function App() {
           />
         </section>
 
-        {/* 4b. PREVISÃO DE CHUVA (OpenWeatherMap) E MAPA DE CHUVA (Windy) */}
-        <section className={`grid grid-cols-1 lg:grid-cols-2 gap-5 ${mobileTab !== 'charts' && mobileTab !== 'dashboard' ? 'hidden sm:grid' : ''}`}>
-          <RainForecastCard />
+        {/* 4b. MAPA E PREVISÃO DE CHUVA (widget gratuito da Windy) */}
+        <section className={mobileTab !== 'charts' && mobileTab !== 'dashboard' ? 'hidden sm:block' : ''}>
           <WindyMapCard />
         </section>
 

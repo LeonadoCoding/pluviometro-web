@@ -2,7 +2,8 @@ import React from 'react';
 import { Map as MapIcon } from 'lucide-react';
 import { UBS_LOCATION } from '../config/location';
 
-// Mapa de chuva da Windy (widget de incorporação gratuito, sem chave)
+// Mapa e previsão de chuva da Windy (widget de incorporação gratuito, sem chave).
+// detail=true mostra, abaixo do mapa, a tabela de previsão do ponto da UBS.
 function buildEmbedUrl({ lat, lon }) {
   const params = new URLSearchParams({
     type: 'map',
@@ -18,6 +19,7 @@ function buildEmbedUrl({ lat, lon }) {
     lon: String(lon),
     detailLat: String(lat),
     detailLon: String(lon),
+    detail: 'true',
     marker: 'true',
     message: 'true'
   });
@@ -30,18 +32,18 @@ export default function WindyMapCard() {
       <div className="mb-4">
         <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
           <MapIcon className="w-5 h-5 text-rain-600 dark:text-rain-400" />
-          Mapa de Chuva
+          Mapa e Previsão de Chuva
         </h2>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-          Chuva prevista na região de {UBS_LOCATION.label} • modelo ECMWF
+          Chuva prevista na região de {UBS_LOCATION.label} e, abaixo do mapa, a previsão hora a hora para a UBS • modelo ECMWF, estimativa que não substitui a leitura do pluviômetro
         </p>
       </div>
-      <div className="flex-1 min-h-[22rem] rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-950">
+      <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-950">
         <iframe
           title="Mapa de chuva da Windy"
           src={buildEmbedUrl(UBS_LOCATION)}
           loading="lazy"
-          className="w-full h-full min-h-[22rem] border-0"
+          className="block w-full h-[640px] sm:h-[620px] border-0"
           allowFullScreen
         />
       </div>
