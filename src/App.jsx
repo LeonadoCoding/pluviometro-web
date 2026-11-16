@@ -10,6 +10,7 @@ import BackupModal from './components/BackupModal';
 import NotificationsModal from './components/NotificationsModal';
 import UsersModal from './components/UsersModal';
 import WindyMapCard from './components/WindyMapCard';
+import ForecastInsight from './components/ForecastInsight';
 import LoginModal from './components/LoginModal';
 import LoginScreen from './components/LoginScreen';
 import ChangePasswordModal from './components/ChangePasswordModal';
@@ -286,6 +287,7 @@ export default function App() {
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Ciclo Pluviométrico Hidrológico: Início em <strong>Outubro</strong> até <strong>Setembro</strong> do ano seguinte.
             </p>
+            <ForecastInsight mapAnchorId="mapa-chuva" />
           </div>
 
           <div className="flex items-center gap-2 sm:shrink-0">
@@ -345,7 +347,7 @@ export default function App() {
         </section>
 
         {/* 4b. MAPA E PREVISÃO DE CHUVA (widget gratuito da Windy) */}
-        <section className={mobileTab !== 'charts' && mobileTab !== 'dashboard' ? 'hidden sm:block' : ''}>
+        <section id="mapa-chuva" className={`scroll-mt-24 ${mobileTab !== 'charts' && mobileTab !== 'dashboard' ? 'hidden sm:block' : ''}`}>
           <WindyMapCard />
         </section>
 
