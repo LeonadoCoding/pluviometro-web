@@ -104,13 +104,27 @@ As regras valem no banco (RLS), não só na tela: um visualizador não consegue 
 
 Como visualizadores e alimentadores não alteram a própria senha, é o administrador quem define uma nova senha quando necessário. O painel não deixa remover nem rebaixar o último administrador, nem alterar o próprio perfil.
 
-## 7. Mapa e previsão de chuva (Windy)
-O painel mostra, depois dos gráficos, o **widget gratuito da Windy**: mapa de chuva da região e, abaixo dele, a tabela de previsão hora a hora para a UBS (modelo ECMWF). Não precisa de conta, chave nem configuração no Supabase. A previsão é uma estimativa de modelo e não substitui a leitura do pluviômetro.
+## 7. Mapa e previsão de chuva
+- **Card "Mapa e Previsão de Chuva"** (depois dos gráficos): widget gratuito da Windy, com o mapa de chuva da região e a tabela de previsão hora a hora para a UBS (modelo ECMWF). Não precisa de chave.
+- **Resumo no cartão de identificação** (topo do painel): uma linha como "Chuva moderada prevista: cerca de 15 mm nos próximos 3 dias • mais chuva na quarta-feira, 18/11", com link para o mapa. Usa a previsão da OpenWeatherMap (plano gratuito, uso comercial permitido com atribuição). Se a previsão não estiver disponível, a linha simplesmente não aparece.
 
-As coordenadas da UBS ficam em `src/config/location.js` (-11.834958, -46.293266, a UBS Placas). Mapa e tabela usam as mesmas.
+As previsões são estimativas de modelos e não substituem a leitura do pluviômetro. O resumo e a tabela da Windy vêm de modelos diferentes; por isso o resumo arredonda os valores ("cerca de") e aponta para o mapa como referência detalhada.
+
+### 7.1 Instalação do resumo
+1. No **SQL Editor**, execute `supabase/forecast.sql` (tabela de cache, sem acesso pelo site).
+2. Publique a função `rain-forecast` (`supabase/functions/rain-forecast/index.ts`) como no passo 5.3, com **Verify JWT desligado**.
+3. Crie uma conta gratuita em https://home.openweathermap.org e, em **Edge Functions → Secrets**, adicione `OPENWEATHER_API_KEY` com a chave (chaves novas podem levar até 2 horas para funcionar).
+
+> Projeto **Central-Pluviometrica**: os três passos já foram aplicados.
+
+A função guarda a previsão por 1 hora: no máximo 24 consultas por dia à OpenWeatherMap, muito abaixo do limite gratuito. Se a OpenWeatherMap falhar, usa a última previsão guardada.
+
+### 7.2 Coordenadas da UBS
+Mapa e tabela da Windy: `src/config/location.js`. Resumo: padrão da função (`FORECAST_LAT`/`FORECAST_LON` para mudar). Hoje ambos usam a UBS Placas: -11.834958, -46.293266.
 
 ## Segurança
 - Nunca publique a chave `service_role`, senhas ou arquivos `.env`.
 - Contas devem ser criadas manualmente no Supabase; não habilite cadastro público para este app administrativo.
 - Só usuários cadastrados em `pluviometro_users` acessam os dados; o perfil de cada um define o que pode gravar. A chave pública, sozinha, não concede acesso.
+- A chave da OpenWeatherMap também fica só nos segredos das Edge Functions.
 - A chave do Brevo fica apenas nos segredos das Edge Functions e o segredo do gatilho fica no Vault do Supabase; nunca os coloque no GitHub.
