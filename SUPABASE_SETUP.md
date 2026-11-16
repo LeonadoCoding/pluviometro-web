@@ -104,6 +104,11 @@ As regras valem no banco (RLS), não só na tela: um visualizador não consegue 
 
 Como visualizadores e alimentadores não alteram a própria senha, é o administrador quem define uma nova senha quando necessário. O painel não deixa remover nem rebaixar o último administrador, nem alterar o próprio perfil.
 
+## 7. Mapa e previsão de chuva (Windy)
+O painel mostra, depois dos gráficos, o **widget gratuito da Windy**: mapa de chuva da região e, abaixo dele, a tabela de previsão hora a hora para a UBS (modelo ECMWF). Não precisa de conta, chave nem configuração no Supabase. A previsão é uma estimativa de modelo e não substitui a leitura do pluviômetro.
+
+As coordenadas da UBS ficam em `src/config/location.js` (-11.834958, -46.293266, a UBS Placas). Mapa e tabela usam as mesmas.
+
 ## Segurança
 - Nunca publique a chave `service_role`, senhas ou arquivos `.env`.
 - Contas devem ser criadas manualmente no Supabase; não habilite cadastro público para este app administrativo.

@@ -9,6 +9,7 @@ import QuickEntryModal from './components/QuickEntryModal';
 import BackupModal from './components/BackupModal';
 import NotificationsModal from './components/NotificationsModal';
 import UsersModal from './components/UsersModal';
+import WindyMapCard from './components/WindyMapCard';
 import LoginModal from './components/LoginModal';
 import LoginScreen from './components/LoginScreen';
 import ChangePasswordModal from './components/ChangePasswordModal';
@@ -341,6 +342,11 @@ export default function App() {
             isDark={chartsDark}
             animate={!isCapturingPdf}
           />
+        </section>
+
+        {/* 4b. MAPA E PREVISÃO DE CHUVA (widget gratuito da Windy) */}
+        <section className={mobileTab !== 'charts' && mobileTab !== 'dashboard' ? 'hidden sm:block' : ''}>
+          <WindyMapCard />
         </section>
 
         {/* 5. TABELA CONSOLIDADA LADO A LADO */}
