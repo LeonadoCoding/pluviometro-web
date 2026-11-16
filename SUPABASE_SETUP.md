@@ -104,8 +104,25 @@ As regras valem no banco (RLS), não só na tela: um visualizador não consegue 
 
 Como visualizadores e alimentadores não alteram a própria senha, é o administrador quem define uma nova senha quando necessário. O painel não deixa remover nem rebaixar o último administrador, nem alterar o próprio perfil.
 
+## 7. Previsão e mapa de chuva
+O painel mostra, depois dos gráficos, a **previsão de chuva dos próximos 5 dias** (OpenWeatherMap, plano gratuito, uso comercial permitido com atribuição) e o **mapa de chuva da Windy** (widget de incorporação gratuito, sem chave). A previsão é uma estimativa de modelo e não substitui a leitura do pluviômetro.
+
+### 7.1 Instalação
+1. No **SQL Editor**, execute `supabase/forecast.sql` (tabela de cache, sem acesso pelo site).
+2. Publique a função `rain-forecast` (`supabase/functions/rain-forecast/index.ts`) como no passo 5.3, com **Verify JWT desligado** (ela confere sozinha se quem chama tem acesso ao painel).
+
+> Projeto **Central-Pluviometrica**: os dois passos já foram aplicados.
+
+### 7.2 Chave da OpenWeatherMap
+1. Crie uma conta gratuita em https://home.openweathermap.org/users/sign_up e copie a chave em **API keys**. Chaves novas podem levar até 2 horas para funcionar.
+2. Em **Edge Functions → Secrets**, adicione `OPENWEATHER_API_KEY` com a chave.
+3. Opcional: `FORECAST_LAT` e `FORECAST_LON` com as coordenadas exatas da UBS (padrão: -12.15, -45.0). Use as mesmas em `src/config/location.js`, que posiciona o mapa da Windy.
+
+A função guarda a previsão por 1 hora: no máximo 24 consultas por dia à OpenWeatherMap, muito abaixo do limite gratuito. Se a OpenWeatherMap falhar, o painel mostra a última previsão disponível, avisando que não foi atualizada.
+
 ## Segurança
 - Nunca publique a chave `service_role`, senhas ou arquivos `.env`.
 - Contas devem ser criadas manualmente no Supabase; não habilite cadastro público para este app administrativo.
 - Só usuários cadastrados em `pluviometro_users` acessam os dados; o perfil de cada um define o que pode gravar. A chave pública, sozinha, não concede acesso.
+- A chave da OpenWeatherMap também fica só nos segredos das Edge Functions.
 - A chave do Brevo fica apenas nos segredos das Edge Functions e o segredo do gatilho fica no Vault do Supabase; nunca os coloque no GitHub.
