@@ -4,6 +4,8 @@ import { fetchRainForecast } from '../services/forecast';
 import { getTodayDateStr } from '../utils/dates';
 import { REFERENCE_TOWN } from '../config/location';
 
+const REFRESH_MS = 60 * 60 * 1000; // 1 hora
+
 const WEEKDAYS = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
 
 // "cerca de" arredondado: sem falsa precisão (até 10 mm de 1 em 1, acima de 5 em 5)
@@ -70,16 +72,32 @@ export default function ForecastInsight({ mapAnchorId }) {
   const [insight, setInsight] = useState(null);
   const [position, setPosition] = useState(null);
 
+  // Busca ao abrir e de hora em hora enquanto a página estiver aberta (a função guarda a previsão por 1 hora).
+  // Abas em segundo plano têm os timers atrasados pelo navegador: ao voltar para a aba, atualiza se já passou 1 hora.
   useEffect(() => {
     let active = true;
-    fetchRainForecast()
-      .then((data) => {
-        if (!active) return;
-        setInsight(buildForecastInsight(data.days, getTodayDateStr()));
-        setPosition(describeForecastPosition(data.location));
-      })
-      .catch((err) => console.warn('Previsão indisponível:', err.message)); // sem previsão, o cabeçalho fica como antes
-    return () => { active = false; };
+    let lastLoad = 0;
+    const load = () => {
+      lastLoad = Date.now();
+      fetchRainForecast()
+        .then((data) => {
+          if (!active) return;
+          setInsight(buildForecastInsight(data.days, getTodayDateStr()));
+          setPosition(describeForecastPosition(data.location));
+        })
+        .catch((err) => console.warn('Previsão indisponível:', err.message)); // em caso de falha, mantém o último resumo
+    };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && Date.now() - lastLoad >= REFRESH_MS) load();
+    };
+    load();
+    const timer = setInterval(load, REFRESH_MS);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      active = false;
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, []);
 
   if (!insight) return null;
