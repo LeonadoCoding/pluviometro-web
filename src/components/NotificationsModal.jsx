@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Plus, X, Send, Save, Mail } from 'lucide-react';
+import { Bell, Plus, X, Send, Save, Mail, FileText } from 'lucide-react';
 import { fetchNotificationSettings, saveNotificationSettings, fetchNotificationLog, sendTestEmail, isValidEmail } from '../services/notifications';
 import { formatDateBR } from '../utils/dates';
 import Modal from './ui/Modal';
@@ -14,7 +14,11 @@ function Section({ title, children, aside }) {
   );
 }
 
-export default function NotificationsModal({ isOpen, onClose }) {
+const MONTH_NAMES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+const periodName = (p) => (p ? `${MONTH_NAMES[Number(p.slice(5, 7)) - 1]}/${p.slice(0, 4)}` : 'mês');
+
+export default function NotificationsModal({ isOpen, onClose, onSendReportTest }) {
+  const [isReportTesting, setIsReportTesting] = useState(false);
   const [settings, setSettings] = useState(null);
   const [log, setLog] = useState([]);
   const [newEmail, setNewEmail] = useState('');
@@ -72,6 +76,20 @@ export default function NotificationsModal({ isOpen, onClose }) {
       setStatus({ type: 'error', text: err.message });
     } finally {
       setIsTesting(false);
+      fetchNotificationLog().then(setLog).catch(() => {});
+    }
+  };
+
+  const handleReportTest = async () => {
+    setIsReportTesting(true);
+    setStatus(null);
+    try {
+      const res = await onSendReportTest();
+      setStatus({ type: 'ok', text: `Boletim em PDF enviado para ${res.sent} ${res.sent === 1 ? 'destinatário' : 'destinatários'}.` });
+    } catch (err) {
+      setStatus({ type: 'error', text: err.message });
+    } finally {
+      setIsReportTesting(false);
       fetchNotificationLog().then(setLog).catch(() => {});
     }
   };
@@ -147,6 +165,31 @@ export default function NotificationsModal({ isOpen, onClose }) {
               <Toggle checked={settings.notify_on_update} onChange={(v) => update({ notify_on_update: v })} label="Avisar também correções" description="Envia um e-mail quando o volume de uma leitura existente muda." />
             </Section>
 
+            <Section title="Boletim mensal em PDF" aside={<span className="chip chip-accent h-6 text-[11px]">NOVO</span>}>
+              <Toggle
+                checked={Boolean(settings.monthly_report)}
+                onChange={(v) => update({ monthly_report: v })}
+                label="Enviar o boletim no fechamento de cada mês"
+                description="O mesmo PDF do botão Boletim, com o mês que fechou, vai em anexo para os destinatários acima."
+              />
+              <div className="mt-3 rounded-md bg-surface border border-line px-3 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <p className="text-[12px] leading-[17px] text-ink-muted">
+                  Sai a partir do dia 1, no primeiro acesso de um administrador ou alimentador ao painel. Um envio por mês, mesmo com várias pessoas conectadas.
+                </p>
+                {onSendReportTest && (
+                  <button
+                    type="button"
+                    onClick={handleReportTest}
+                    disabled={isReportTesting || isDirty || !settings.recipients.length}
+                    title={isDirty ? 'Grave antes de testar' : 'Envia agora o boletim da safra exibida'}
+                    className="btn btn-secondary flex-shrink-0"
+                  >
+                    {isReportTesting ? <Spinner /> : <FileText />} Enviar boletim agora
+                  </button>
+                )}
+              </div>
+            </Section>
+
             {log.length > 0 && (
               <Section title="Últimos envios">
                 <ul className="divide-y divide-[color:var(--line)] -my-1">
@@ -154,7 +197,10 @@ export default function NotificationsModal({ isOpen, onClose }) {
                     <li key={item.id} className="py-2.5 flex items-center justify-between gap-3">
                       <span className="min-w-0">
                         <b className="block text-[14px] leading-5 font-semibold text-ink-strong num">
-                          {item.kind === 'test' ? 'E-mail de teste' : `${Number(item.rain_mm).toLocaleString('pt-BR')} mm em ${formatDateBR(item.record_date)}`}
+                          {item.kind === 'test' ? 'E-mail de teste'
+                            : item.kind === 'report_test' ? 'Boletim em PDF (teste)'
+                            : item.kind === 'monthly' ? `Boletim de ${periodName(item.period)} (PDF)`
+                            : `${Number(item.rain_mm).toLocaleString('pt-BR')} mm em ${formatDateBR(item.record_date)}`}
                         </b>
                         <span className="block text-[12px] leading-4 text-ink-muted truncate num" title={item.error || ''}>
                           {new Date(item.created_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })} · {item.recipients?.length || 0} {item.recipients?.length === 1 ? 'destinatário' : 'destinatários'}{item.error ? ` · ${item.error}` : ''}

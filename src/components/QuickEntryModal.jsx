@@ -14,7 +14,7 @@ function shiftDate(days) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export default function QuickEntryModal({ isOpen, onClose, onSave, editingRecord = null, records = [] }) {
+export default function QuickEntryModal({ isOpen, onClose, onSave, editingRecord = null, initialDate = null, records = [] }) {
   const [date, setDate] = useState(getTodayDateStr());
   const [rainMm, setRainMm] = useState('');
   const [notes, setNotes] = useState('');
@@ -24,12 +24,12 @@ export default function QuickEntryModal({ isOpen, onClose, onSave, editingRecord
   // Abre limpo para um lançamento novo, ou preenchido com a leitura que está sendo corrigida
   useEffect(() => {
     if (!isOpen) return;
-    setDate(editingRecord?.date || getTodayDateStr());
+    setDate(editingRecord?.date || initialDate || getTodayDateStr());
     setRainMm(editingRecord ? toInput(editingRecord.rain_mm) : '');
     setNotes(editingRecord?.notes || '');
     setErrorMsg('');
     setIsSubmitting(false);
-  }, [isOpen, editingRecord]);
+  }, [isOpen, editingRecord, initialDate]);
 
   const existing = useMemo(() => (editingRecord ? null : records.find(r => r.date === date)), [records, date, editingRecord]);
   const today = getTodayDateStr();

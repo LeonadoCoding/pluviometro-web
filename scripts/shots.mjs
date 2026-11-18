@@ -92,6 +92,7 @@ const MODALS = {
   avisos: `document.querySelector('[aria-haspopup="menu"]').click(); setTimeout(() => [...document.querySelectorAll('[role=menuitem]')].find(b => /Avisos/.test(b.textContent)).click(), 200)`,
   backup: `document.querySelector('[aria-haspopup="menu"]').click(); setTimeout(() => [...document.querySelectorAll('[role=menuitem]')].find(b => /Backup|Exportar/.test(b.textContent)).click(), 200)`,
   menu: `document.querySelector('[aria-haspopup="menu"]').click()`,
+  avisosfim: `document.querySelector('[aria-haspopup="menu"]').click(); setTimeout(() => [...document.querySelectorAll('[role=menuitem]')].find(b => /Avisos/.test(b.textContent)).click(), 200); setTimeout(() => [...document.querySelectorAll('[role=dialog] *')].filter(e => e.scrollHeight > e.clientHeight + 20 && getComputedStyle(e).overflowY !== 'visible').forEach(e => e.scrollTop = 520), 900)`,
   senha: `document.querySelector('[aria-haspopup="menu"]').click(); setTimeout(() => [...document.querySelectorAll('[role=menuitem]')].find(b => /senha/.test(b.textContent)).click(), 200)`,
   excluir: `document.querySelector('[aria-label^="Excluir leitura"]').click()`,
   editar: `document.querySelector('[aria-label^="Editar leitura"]').click()`
@@ -172,6 +173,53 @@ try {
       console.log('arquivo:', file || 'NENHUM', file ? `${fs.statSync(path.join(dir, file)).size} bytes em ${Date.now() - t0} ms` : '');
       console.log('temas durante a captura:', await evaluate('JSON.stringify(window.__themes)'), '· tema final:', await evaluate('document.documentElement.dataset.theme'), '· preferência:', await evaluate(`localStorage.getItem('pluviometro_theme_preference')`));
       console.log('aviso no modal:', await evaluate(`[...document.querySelectorAll('[role=dialog] .notice-ok, [role=dialog] .notice-error')].map(n => n.textContent).join(' | ') || '(nenhum)'`));
+      await shot(scene, false);
+    } else if (kind === 'cal') {
+      // Calendário de chuvas: abre, captura, volta um mês e captura de novo
+      const [, theme, w] = parts;
+      await setViewport(+w, +w < 700 ? 844 : 900, +w < 700);
+      await setTheme(theme);
+      await login(PROFILES.admin, theme);
+      await go(APP);
+      await sleep(2400);
+      await evaluate(`document.querySelector('[aria-label="Abrir o calendário de chuvas"]').click(); true`);
+      await sleep(1100);
+      await shot(`${scene}-a`, false);
+      await evaluate(`document.querySelector('[aria-label="Mês anterior"]').click(); true`);
+      await sleep(250);
+      await evaluate(`[...document.querySelectorAll('[role=grid] button')].find(b => /chuva (forte|moderada)/.test(b.getAttribute('aria-label') || ''))?.click(); true`);
+      await sleep(900);
+      await shot(`${scene}-b`, false);
+    } else if (kind === 'acesso') {
+      const [, theme, w] = parts;
+      await setViewport(+w, +w < 700 ? 844 : 900, +w < 700);
+      await setTheme(theme);
+      await go(APP);
+      await evaluate(`localStorage.clear(); localStorage.setItem('pluviometro_theme_preference','${theme}'); true`);
+      await go(APP);
+      await sleep(800);
+      for (let i = 0; i < 40 && !(await evaluate(`Boolean(document.querySelector('#login-email'))`)); i++) await sleep(250);
+      await evaluate(`document.querySelector('#login-email').focus(); true`);
+      await cdp('Input.insertText', { text: 'maria.campo@sementesoilema.com.br' });
+      await evaluate(`[...document.querySelectorAll('button')].find(b => /Peça a um administrador/.test(b.textContent)).click(); true`);
+      await sleep(1100);
+      console.log('links:', await evaluate(`JSON.stringify([...document.querySelectorAll('[role=dialog] a')].map(a => decodeURIComponent(a.href)))`));
+      await shot(scene, false);
+    } else if (kind === 'mensal') {
+      // Boletim mensal automático: liga a opção, entra como alimentador e espera o envio
+      const [, prof = 'alimentador'] = parts;
+      const tok = await (await fetch(`${API}/auth/v1/token?grant_type=password`, { method: 'POST', body: JSON.stringify({ email: PROFILES.admin, password: 'teste-oilema-2026' }) })).json();
+      await fetch(`${API}/rest/v1/notification_settings?id=eq.1`, { method: 'PATCH', headers: { Authorization: `Bearer ${tok.access_token}` }, body: JSON.stringify({ monthly_report: true }) });
+      await setViewport(1440, 900, false);
+      await setTheme('light');
+      await login(PROFILES[prof], 'light');
+      await go(APP);
+      for (let i = 0; i < 30; i++) {
+        await sleep(1000);
+        const toasts = await evaluate(`[...document.querySelectorAll('[role=status], [role=alert]')].map(t => t.textContent).join(' | ')`);
+        if (/enviado para|não foi enviado/.test(toasts)) { console.log('aviso:', toasts); break; }
+        if (i === 29) console.log('sem aviso de envio; avisos na tela:', toasts || '(nenhum)');
+      }
       await shot(scene, false);
     } else if (kind === 'probe') {
       const [, theme] = parts;

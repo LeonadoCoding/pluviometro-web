@@ -25,6 +25,7 @@ export async function saveNotificationSettings(settings) {
       recipients,
       min_rain_mm: Math.max(0, Number(settings.min_rain_mm) || 0),
       notify_on_update: Boolean(settings.notify_on_update),
+      monthly_report: Boolean(settings.monthly_report),
       max_age_days: Math.min(60, Math.max(0, parseInt(settings.max_age_days, 10) || 0)),
       updated_at: new Date().toISOString()
     })
@@ -50,3 +51,36 @@ export async function sendTestEmail() {
   if (!response.ok) throw new Error(data.error || 'Falha ao enviar o e-mail de teste.');
   return data;
 }
+
+// ---------- Boletim mensal em PDF ----------
+async function callMonthlyReport(payload) {
+  const { url, anonKey } = getSupabaseConfig();
+  const token = await getValidAccessToken();
+  if (!token) throw new Error('Sua sessão expirou. Entre novamente.');
+  const response = await fetch(`${url}/functions/v1/monthly-report`, {
+    method: 'POST',
+    headers: { apikey: anonKey, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await response.json().catch(() => ({}));
+  if (response.status === 404) throw new Error('A função monthly-report ainda não foi publicada no Supabase.');
+  if (!response.ok) throw new Error(data.error || 'Falha ao enviar o boletim.');
+  return data;
+}
+
+// Mês que acabou de fechar, no formato AAAA-MM
+export function previousPeriod(today = new Date()) {
+  const d = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+export const checkMonthlyReport = (period) => callMonthlyReport({ action: 'check', period });
+
+// PDF do jsPDF em base64, sem o prefixo data:
+const pdfToBase64 = (doc) => doc.output('datauristring').split(',')[1];
+
+export const sendMonthlyReport = (period, doc, filename) =>
+  callMonthlyReport({ action: 'send', period, filename, pdf_base64: pdfToBase64(doc) });
+
+export const sendReportTest = (doc, filename) =>
+  callMonthlyReport({ action: 'test', filename, pdf_base64: pdfToBase64(doc) });

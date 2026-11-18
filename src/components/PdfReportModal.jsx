@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileText, Download, Printer, Check, BarChart3, Table2, Gauge, GitCompareArrows } from 'lucide-react';
+import { FileText, Download, Printer, Check, BarChart3, Table2, Gauge, GitCompareArrows, Activity } from 'lucide-react';
 import { generatePluviometroPDF } from '../utils/pdfGenerator';
 import Modal from './ui/Modal';
 import { Notice, Spinner } from './ui/primitives';
@@ -8,10 +8,11 @@ const CONTENT = [
   { icon: Gauge, title: 'Indicadores', text: 'Acumulado, média diária do mês, maior dia e recorde.' },
   { icon: BarChart3, title: 'Gráficos', text: 'Chuva mês a mês e safras comparadas, em alta resolução.' },
   { icon: Table2, title: 'Ciclo da safra', text: 'Outubro a setembro com total, média e desvio da média histórica.' },
-  { icon: GitCompareArrows, title: 'Safras anteriores', text: 'Total de cada safra e as últimas leituras.' }
+  { icon: GitCompareArrows, title: 'Safras anteriores', text: 'Total de cada safra e as últimas leituras.' },
+  { icon: Activity, title: 'Ritmo da safra', text: 'Comparação com o esperado para a data, projeção de fechamento, estiagens e chuvas por intensidade.' }
 ];
 
-export default function PdfReportModal({ isOpen, onClose, selectedSafra, currentSafraMetrics, kpis, safraMetricsMap, availableSafras, recentRecords, historicalMonthAvg }) {
+export default function PdfReportModal({ isOpen, onClose, selectedSafra, currentSafraMetrics, kpis, safraMetricsMap, availableSafras, recentRecords, historicalMonthAvg, safraRecords }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
@@ -21,7 +22,7 @@ export default function PdfReportModal({ isOpen, onClose, selectedSafra, current
     setError('');
     setDone(false);
     try {
-      const doc = await generatePluviometroPDF({ selectedSafra, currentSafraMetrics, kpis, safraMetricsMap, availableSafras, recentRecords, historicalMonthAvg });
+      const doc = await generatePluviometroPDF({ selectedSafra, currentSafraMetrics, kpis, safraMetricsMap, availableSafras, recentRecords, historicalMonthAvg, safraRecords });
       doc.save(`Boletim_Pluviometrico_Oilema_Safra_${selectedSafra.replace('/', '_')}.pdf`);
       setDone(true);
     } catch (err) {
@@ -50,7 +51,7 @@ export default function PdfReportModal({ isOpen, onClose, selectedSafra, current
       }
     >
       <p className="eyebrow mb-3">O que vai no documento</p>
-      <ul className="grid sm:grid-cols-2 gap-2.5">
+      <ul className="grid sm:grid-cols-2 gap-2.5 [&>li:last-child:nth-child(odd)]:sm:col-span-2">
         {CONTENT.map(({ icon: Icon, title, text }) => (
           <li key={title} className="well p-3.5 flex gap-3">
             <span className="w-8 h-8 rounded-md bg-surface border border-line flex items-center justify-center flex-shrink-0 text-accent-text"><Icon className="w-4 h-4" /></span>

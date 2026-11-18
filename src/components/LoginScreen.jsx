@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Eye, EyeOff, Sun, Moon, ArrowRight, Droplets, CloudRain, FileText } from 'lucide-react';
 import { loginUser } from '../services/auth';
 import { Logo, Waves, Notice, Spinner } from './ui/primitives';
+import AccessRequestModal from './AccessRequestModal';
 
 const IS_TEST = import.meta.env.VITE_TEST_INSTANCE === '1';
 
@@ -149,6 +150,7 @@ function Showcase() {
 }
 
 export default function LoginScreen({ onLoginSuccess, theme, onToggleTheme }) {
+  const [accessOpen, setAccessOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -207,8 +209,18 @@ export default function LoginScreen({ onLoginSuccess, theme, onToggleTheme }) {
           </button>
 
           <p className="text-[13px] leading-[19px] text-ink-muted mt-5">
-            Sem acesso? Peça a um administrador do Pluviômetro para cadastrar o seu e-mail.
+            Sem acesso?{' '}
+            <button
+              type="button"
+              onClick={() => setAccessOpen(true)}
+              className="group inline font-semibold text-accent-text"
+              aria-haspopup="dialog"
+            >
+              <span className="bg-[linear-gradient(currentColor,currentColor)] bg-no-repeat bg-[length:100%_1px] bg-[position:0_100%] group-hover:bg-[length:0%_1px] transition-[background-size] duration-300">Peça a um administrador</span>
+            </button>{' '}
+            do Pluviômetro para cadastrar o seu e-mail.
           </p>
+          <AccessRequestModal open={accessOpen} onClose={() => setAccessOpen(false)} email={email} />
 
           {IS_TEST && (
             <div className="mt-6 rounded-lg border border-dashed border-[rgba(242,131,34,.5)] bg-orange-50 dark:bg-orange-500/10 px-4 py-3 text-[13px] leading-5 text-orange-800 dark:text-orange-200">

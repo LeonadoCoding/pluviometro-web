@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { NotebookPen, Search, Trash2, PencilLine, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { NotebookPen, Search, Trash2, PencilLine, ChevronLeft, ChevronRight, X, CalendarDays } from 'lucide-react';
+import RainCalendar from './RainCalendar';
 import { PanelHeader } from './ui/primitives';
 
 const WEEKDAYS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
@@ -65,7 +66,8 @@ function RecordTile({ record, canEdit, canDelete, onEdit, onDelete, index }) {
   );
 }
 
-export default function DailyRecordsList({ records, selectedSafra, onEditRecord, onDeleteRecord, canEdit = true, canDelete = true }) {
+export default function DailyRecordsList({ records, selectedSafra, onEditRecord, onDeleteRecord, onLaunchForDate, historicalMonthAvg = {}, canEdit = true, canDelete = true }) {
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSafra, setFilterSafra] = useState(selectedSafra || 'all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -102,6 +104,9 @@ export default function DailyRecordsList({ records, selectedSafra, onEditRecord,
         }
         actions={
           <>
+            <button type="button" onClick={() => setCalendarOpen(true)} className="btn btn-icon group flex-shrink-0" title="Calendário de chuvas" aria-label="Abrir o calendário de chuvas" aria-haspopup="dialog">
+              <CalendarDays className="transition-transform duration-200 group-hover:-rotate-6 group-hover:scale-110" />
+            </button>
             <div className="relative flex-1 sm:flex-none sm:w-56">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted pointer-events-none" />
               <input
@@ -161,6 +166,16 @@ export default function DailyRecordsList({ records, selectedSafra, onEditRecord,
           )}
         </>
       )}
+
+      <RainCalendar
+        open={calendarOpen}
+        onClose={() => setCalendarOpen(false)}
+        records={records}
+        historicalMonthAvg={historicalMonthAvg}
+        canEdit={canEdit}
+        onEditRecord={(r) => { setCalendarOpen(false); setTimeout(() => onEditRecord(r), 260); }}
+        onLaunchForDate={(d) => { setCalendarOpen(false); setTimeout(() => onLaunchForDate?.(d), 260); }}
+      />
     </div>
   );
 }

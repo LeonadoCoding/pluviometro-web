@@ -47,7 +47,7 @@ function seedDb() {
     users,
     rain_records: records,
     nextId: records.length + 1,
-    notification_settings: { id: 1, enabled: true, recipients: ['campo@teste.local', 'gerencia@teste.local'], min_rain_mm: 1, notify_on_update: false, max_age_days: 7, updated_at: new Date().toISOString() },
+    notification_settings: { id: 1, enabled: true, recipients: ['campo@teste.local', 'gerencia@teste.local'], min_rain_mm: 1, notify_on_update: false, max_age_days: 7, monthly_report: false, updated_at: new Date().toISOString() },
     notification_log: [],
     sessions: {}
   };
@@ -222,6 +222,39 @@ const server = http.createServer(async (req, res) => {
       db.notification_log.push({ id: db.notification_log.length + 1, kind: 'test', status: 'sent', recipients, created_at: new Date().toISOString(), rain_mm: null, record_date: null, error: null });
       save();
       return send(res, 200, { ok: true, sent: recipients.length });
+    }
+    // Boletim mensal: mesmas regras da função real; o "e-mail" vira um PDF em .test-data/outbox
+    if (p === '/functions/v1/monthly-report') {
+      const body = await readBody(req);
+      const s = db.notification_settings;
+      const now = new Date();
+      const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const period = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}`;
+      const outbox = path.join(DATA_DIR, 'outbox');
+      const store = (name) => { fs.mkdirSync(outbox, { recursive: true }); fs.writeFileSync(path.join(outbox, name), Buffer.from(body.pdf_base64 || '', 'base64')); };
+      const pdfError = () => (!String(body.pdf_base64 || '').startsWith('JVBER') ? 'O arquivo enviado não é um PDF.' : !/^[\w.-]+\.pdf$/i.test(body.filename || '') ? 'Nome de arquivo inválido.' : null);
+      if (body.action === 'check' || body.action === 'send') {
+        if (!can(user, 'write')) return send(res, 403, { error: 'Sem permissão.' });
+        if (body.period !== period) return send(res, 200, { due: false, reason: 'period' });
+        if (!s.monthly_report || !s.recipients.length) return send(res, 200, { due: false, reason: 'disabled' });
+        if (db.notification_log.some(l => l.kind === 'monthly' && l.period === period && l.status === 'sent')) return send(res, 200, { due: false, reason: 'sent' });
+        if (body.action === 'check') return send(res, 200, { due: true, period, recipients: s.recipients.length });
+        if (pdfError()) return send(res, 400, { error: pdfError() });
+        store(`${period}_${body.filename}`);
+        db.notification_log.push({ id: db.notification_log.length + 1, kind: 'monthly', period, status: 'sent', recipients: s.recipients, created_at: new Date().toISOString(), rain_mm: null, record_date: null, error: null });
+        save();
+        return send(res, 200, { ok: true, sent: s.recipients.length, period });
+      }
+      if (body.action === 'test') {
+        if (!can(user, 'admin')) return send(res, 403, { error: 'Apenas administradores podem enviar o boletim de teste.' });
+        if (!s.recipients.length) return send(res, 400, { error: 'Cadastre pelo menos um destinatário.' });
+        if (pdfError()) return send(res, 400, { error: pdfError() });
+        store(`teste_${Date.now()}_${body.filename}`);
+        db.notification_log.push({ id: db.notification_log.length + 1, kind: 'report_test', status: 'sent', recipients: s.recipients, created_at: new Date().toISOString(), rain_mm: null, record_date: null, error: null });
+        save();
+        return send(res, 200, { ok: true, sent: s.recipients.length });
+      }
+      return send(res, 400, { error: 'Ação desconhecida.' });
     }
     if (p === '/functions/v1/manage-users') {
       if (!can(user, 'admin')) return send(res, 403, { error: 'Somente administradores.' });

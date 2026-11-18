@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Trash2 } from 'lucide-react';
 import Header from './components/Header';
 import IdentityCard from './components/IdentityCard';
@@ -20,8 +20,9 @@ import MobileBottomNav from './components/MobileBottomNav';
 import { useToast, useConfirm } from './components/ui/feedback';
 
 import { getInitialTheme, applyTheme, paintTheme } from './utils/theme';
-import { formatDateBR } from './utils/dates';
-import { PDF_CAPTURE_EVENT } from './utils/pdfGenerator';
+import { formatDateBR, getSafraFromDate, MONTHS_SAFRA } from './utils/dates';
+import { PDF_CAPTURE_EVENT, generatePluviometroPDF } from './utils/pdfGenerator';
+import { checkMonthlyReport, sendMonthlyReport, sendReportTest, previousPeriod } from './services/notifications';
 import { getCurrentUser, logoutUser, isAuthenticated, getPermissions, refreshCurrentUserRole } from './services/auth';
 import { checkBackendConnection, fetchDashboardData, fetchRecordsList, saveRainRecord, deleteRainRecord } from './services/api';
 
@@ -46,6 +47,7 @@ export default function App() {
 
   const [isQuickEntryOpen, setIsQuickEntryOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
+  const [entryDate, setEntryDate] = useState(null);
   const [isBackupOpen, setIsBackupOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isUsersOpen, setIsUsersOpen] = useState(false);
@@ -84,10 +86,12 @@ export default function App() {
       setDashboardData(data);
       if (data?.currentSafra && !safraToLoad) setSelectedSafra(data.currentSafra);
       setRecords(await fetchRecordsList());
+      return data;
     } catch (err) {
       console.error('Erro ao carregar dados:', err);
       setLoadError(err.message || 'Não foi possível carregar os dados.');
       if (/sess[aã]o|expir/i.test(err.message || '')) setIsLoginOpen(true);
+      return null;
     } finally {
       setIsLoading(false);
     }
@@ -107,6 +111,75 @@ export default function App() {
       .catch(() => { /* sem conexão: mantém o perfil já conhecido */ });
   }, [currentUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ---------- Boletim em PDF por e-mail ----------
+  // Mesmo boletim do botão "PDF": gráficos capturados da tela, demais blocos desenhados no jsPDF
+  const buildReport = async (data, safra, { asOfDate = null, reportLabel = null } = {}) => {
+    const upto = asOfDate ? records.filter(r => r.date <= asOfDate) : records;
+    return generatePluviometroPDF({
+      selectedSafra: safra,
+      currentSafraMetrics: data?.currentSafraMetrics,
+      kpis: data?.kpis,
+      safraMetricsMap: data?.safraMetricsMap || {},
+      availableSafras: data?.availableSafras || availableSafras,
+      recentRecords: upto.slice(0, 10),
+      historicalMonthAvg: data?.historicalMonthAvg || {},
+      safraRecords: upto.filter(r => r.safra === safra),
+      asOfDate,
+      reportLabel
+    });
+  };
+
+  const periodLabel = (period) => `${MONTHS_SAFRA.find(m => m.key === period.slice(5, 7))?.name.toLowerCase()}/${period.slice(0, 4)}`;
+
+  // Fechamento do mês: usa a safra do mês fechado (em outubro, o boletim de setembro é da safra anterior)
+  const runMonthlyReport = async (period) => {
+    const [y, m] = period.split('-').map(Number);
+    const lastDay = `${period}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
+    const safra = getSafraFromDate(lastDay);
+    const original = selectedSafra;
+    let data = dashboardData;
+    if (safra !== original) {
+      setSelectedSafra(safra);
+      data = await loadData(safra);
+      await new Promise(r => setTimeout(r, 1500)); // gráficos da outra safra na tela antes da captura
+    }
+    try {
+      // O mesmo boletim do botão PDF, com os dados do momento do envio (normalmente o dia 1)
+      const doc = await buildReport(data, safra, { reportLabel: `Fechamento de ${periodLabel(period)}` });
+      return await sendMonthlyReport(period, doc, `Boletim_Pluviometrico_Oilema_${period}.pdf`);
+    } finally {
+      if (safra !== original) { setSelectedSafra(original); await loadData(original); }
+    }
+  };
+
+  // No primeiro acesso de quem lança chuvas a partir do dia 1: envia o boletim do mês que fechou, se pendente
+  const monthlyCheckRef = useRef(false);
+  useEffect(() => {
+    if (!dashboardData || !records.length || !permissions.canLaunchRain || monthlyCheckRef.current) return;
+    monthlyCheckRef.current = true;
+    const period = previousPeriod();
+    const flag = `pluviometro_monthly_${period}`;
+    try {
+      if (sessionStorage.getItem(flag)) return;
+      sessionStorage.setItem(flag, '1');
+    } catch { /* sem sessionStorage: a função no servidor já impede envio duplicado */ }
+    (async () => {
+      const status = await checkMonthlyReport(period);
+      if (!status?.due) return;
+      toast(`Enviando o boletim de ${periodLabel(period)} aos destinatários…`, 'info');
+      const res = await runMonthlyReport(period);
+      if (res?.ok) toast(`Boletim de ${periodLabel(period)} enviado para ${res.sent} ${res.sent === 1 ? 'destinatário' : 'destinatários'}.`);
+    })().catch(err => {
+      console.warn('Boletim mensal:', err.message);
+      if (permissions.canConfigureAlerts) toast(`O boletim de ${periodLabel(period)} não foi enviado: ${err.message}`, 'error');
+    });
+  }, [dashboardData, records.length, permissions.canLaunchRain]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleSendReportTest = async () => {
+    const doc = await buildReport(dashboardData, selectedSafra, { reportLabel: 'Envio de teste' });
+    return sendReportTest(doc, `Boletim_Pluviometrico_Oilema_Safra_${selectedSafra.replace('/', '_')}.pdf`);
+  };
+
   const denyForRole = (action) => toast(`Seu perfil (${permissions.roleLabel}) não permite ${action}.`, 'error');
 
   const requireAuth = (msg) => {
@@ -125,6 +198,16 @@ export default function App() {
     if (!requireAuth('Entre de novo para lançar chuvas.')) return;
     if (!permissions.canLaunchRain) return denyForRole('lançar chuvas');
     setEditingRecord(null);
+    setEntryDate(null);
+    setIsQuickEntryOpen(true);
+  };
+
+  // Calendário: lançar a leitura de um dia que ficou sem registro
+  const handleLaunchForDate = (date) => {
+    if (!requireAuth('Entre de novo para lançar chuvas.')) return;
+    if (!permissions.canLaunchRain) return denyForRole('lançar chuvas');
+    setEditingRecord(null);
+    setEntryDate(date);
     setIsQuickEntryOpen(true);
   };
 
@@ -193,7 +276,7 @@ export default function App() {
   }
 
   // No celular, a barra inferior escolhe a vista; no computador tudo aparece
-  const show = (...tabs) => (tabs.includes(mobileTab) ? '' : 'hidden sm:block');
+  const show = (...tabs) => (isCapturingPdf || tabs.includes(mobileTab) ? '' : 'hidden sm:block');
 
   return (
     <div className="min-h-screen bg-page text-ink flex flex-col pb-24 sm:pb-0">
@@ -243,6 +326,8 @@ export default function App() {
             selectedSafra={selectedSafra}
             onEditRecord={handleEditRain}
             onDeleteRecord={handleDeleteRain}
+            onLaunchForDate={handleLaunchForDate}
+            historicalMonthAvg={dashboardData?.historicalMonthAvg || {}}
             canEdit={permissions.canLaunchRain}
             canDelete={permissions.canDeleteRain}
           />
@@ -259,7 +344,7 @@ export default function App() {
           />
         </section>
 
-        <section aria-label="Gráficos" className={`grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 ${mobileTab === 'charts' || mobileTab === 'dashboard' ? '' : 'hidden sm:grid'}`}>
+        <section aria-label="Gráficos" className={`grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 ${isCapturingPdf || mobileTab === 'charts' || mobileTab === 'dashboard' ? '' : 'hidden sm:grid'}`}>
           {dashboardData ? (
             <>
               <ProgressionChart
@@ -309,10 +394,11 @@ export default function App() {
         onClose={() => { setIsQuickEntryOpen(false); setEditingRecord(null); }}
         onSave={handleSaveRain}
         editingRecord={editingRecord}
+        initialDate={entryDate}
         records={records}
       />
       <BackupModal isOpen={isBackupOpen} onClose={() => setIsBackupOpen(false)} onDataChanged={() => loadData(selectedSafra)} canImportData={permissions.canImportData} />
-      <NotificationsModal isOpen={isNotificationsOpen && permissions.canConfigureAlerts} onClose={() => setIsNotificationsOpen(false)} />
+      <NotificationsModal isOpen={isNotificationsOpen && permissions.canConfigureAlerts} onClose={() => setIsNotificationsOpen(false)} onSendReportTest={dashboardData ? handleSendReportTest : null} />
       <LoginModal isOpen={isLoginOpen} onClose={() => setIsLoginOpen(false)} onLoginSuccess={(user) => { setCurrentUser(user); toast('Sessão renovada.'); }} />
       <UsersModal isOpen={isUsersOpen && permissions.canManageUsers} onClose={() => setIsUsersOpen(false)} currentUser={currentUser} />
       <ChangePasswordModal isOpen={isChangePasswordOpen && permissions.canChangePassword} onClose={() => setIsChangePasswordOpen(false)} onSuccess={() => toast('Senha alterada. Use a nova no próximo acesso.')} />
@@ -326,6 +412,7 @@ export default function App() {
         availableSafras={availableSafras}
         recentRecords={records.slice(0, 10)}
         historicalMonthAvg={dashboardData?.historicalMonthAvg || {}}
+        safraRecords={records.filter(r => r.safra === selectedSafra)}
       />
 
       <MobileBottomNav

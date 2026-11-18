@@ -1,4 +1,4 @@
-import { formatDateBR } from './dates';
+import { formatDateBR, getTodayDateStr } from './dates';
 import { getDefaultMonth } from '../data/calculations';
 
 // Paleta Oilema (Oilema_Theme.json)
@@ -155,6 +155,162 @@ function drawPreservedImage(doc, imgData, x, y, maxW, maxH) {
   return y + targetH;
 }
 
+// ---------- Seção 6: indicadores de leitura rápida, calculados a partir das leituras da safra ----------
+const DAY_MS = 86_400_000;
+const daysBetween = (a, b) => Math.round((Date.parse(`${b}T12:00:00`) - Date.parse(`${a}T12:00:00`)) / DAY_MS);
+const INTENSITY = [
+  { label: 'Fraca', range: 'até 10 mm', max: 10, color: [250, 199, 150] },
+  { label: 'Moderada', range: '10 a 25 mm', max: 25, color: [245, 160, 87] },
+  { label: 'Forte', range: '25 a 50 mm', max: 50, color: [224, 114, 28] },
+  { label: 'Muito forte', range: '50 mm ou mais', max: Infinity, color: [180, 82, 15] }
+];
+
+export function computeSafraInsights({ progression = [], historicalMonthAvg = {}, safraMetricsMap = {}, selectedSafra, safraRecords = [], asOfDate, total = 0 }) {
+  // Safra já encerrada: a conta para em 30/09 (fim do ciclo), não no dia de hoje
+  const safraEnd = selectedSafra ? `${selectedSafra.split('/')[1]}-09-30` : null;
+  let asOf = asOfDate || getTodayDateStr();
+  if (safraEnd && asOf > safraEnd) asOf = safraEnd;
+  const recs = safraRecords.filter(r => r.date <= asOf).sort((a, b) => a.date.localeCompare(b.date));
+  // Total calculado das mesmas leituras dos demais indicadores da seção (percentuais fecham em 100%)
+  if (recs.length) total = recs.reduce((a, r) => a + (Number(r.rain_mm) || 0), 0);
+  const curKey = asOf.slice(0, 7);
+  const dayOfMonth = Number(asOf.slice(8, 10));
+
+  // Esperado até a data: meses encerrados pela média histórica + fração do mês corrente
+  let expected = 0;
+  let remaining = 0;
+  for (const row of progression) {
+    const hist = historicalMonthAvg[row.monthCode];
+    if (hist == null) continue;
+    const key = `${row.year}-${String(MONTH_NUM[row.monthCode]).padStart(2, '0')}`;
+    if (key < curKey) expected += hist;
+    else if (key === curKey) {
+      const frac = Math.min(1, dayOfMonth / (row.daysInMonth || 30));
+      expected += hist * frac;
+      remaining += hist * (1 - frac);
+    } else remaining += hist;
+  }
+  const others = Object.entries(safraMetricsMap).filter(([s, m]) => s !== selectedSafra && m?.total_mm > 0).map(([, m]) => m.total_mm);
+  const safraAvg = others.length ? others.reduce((a, b) => a + b, 0) / others.length : null;
+
+  // Estiagens: maior intervalo entre chuvas e a sequência atual sem chuva
+  const rainy = recs.filter(r => r.rain_mm > 0).map(r => r.date);
+  let longestDry = { days: 0, from: null, to: null };
+  for (let i = 1; i < rainy.length; i++) {
+    const gap = daysBetween(rainy[i - 1], rainy[i]) - 1;
+    if (gap > longestDry.days) longestDry = { days: gap, from: rainy[i - 1], to: rainy[i] };
+  }
+  const currentDry = rainy.length ? daysBetween(rainy[rainy.length - 1], asOf) : null;
+
+  const profile = INTENSITY.map(b => ({ ...b, days: 0, mm: 0 }));
+  for (const r of recs) {
+    if (r.rain_mm <= 0) continue;
+    const b = profile.find(x => r.rain_mm < x.max);
+    b.days++; b.mm += r.rain_mm;
+  }
+  const heavy = profile.slice(2);
+  const heavyMm = heavy.reduce((a, b) => a + b.mm, 0);
+  const heavyDays = heavy.reduce((a, b) => a + b.days, 0);
+
+  return {
+    asOf, total, expected, deltaPct: expected > 0 ? Math.round(((total - expected) / expected) * 100) : null,
+    projection: total + remaining, safraAvg, longestDry, currentDry, lastRain: rainy[rainy.length - 1] || null,
+    profile, heavyMm, heavyDays, heavyShare: total > 0 ? Math.round((heavyMm / total) * 100) : 0, rainyDays: rainy.length
+  };
+}
+const MONTH_NUM = { OUT: 10, NOV: 11, DEZ: 12, JAN: 1, FEV: 2, MAR: 3, ABR: 4, MAI: 5, JUN: 6, JUL: 7, AGO: 8, SET: 9 };
+
+function drawSafraInsights({ doc, font, sectionTitle, y, margin, contentWidth, pageHeight, ...data }) {
+  const ins = computeSafraInsights(data);
+  if (y + 62 > pageHeight - 14) return y;
+
+  y = sectionTitle('6. Ritmo da safra e perfil das chuvas', y);
+  const gap = 4;
+  const colW = (contentWidth - gap) / 2;
+  const boxH = 54;
+
+  // Coluna esquerda: três leituras de ritmo
+  doc.setFillColor(...BRAND.card);
+  doc.setDrawColor(...BRAND.line);
+  doc.setLineWidth(0.2);
+  doc.roundedRect(margin, y, colW, boxH, 1.5, 1.5, 'FD');
+  const rows = [
+    {
+      label: 'EM RELAÇÃO AO ESPERADO PARA A DATA',
+      value: ins.deltaPct == null ? EM_DASH : `${ins.deltaPct > 0 ? '+' : ''}${ins.deltaPct}%`,
+      color: ins.deltaPct == null ? BRAND.ink : ins.deltaPct >= 0 ? BRAND.positive : BRAND.negative,
+      text: `${fmt(ins.total)} mm registrados contra ${fmt(ins.expected)} mm da média histórica até ${formatDateBR(ins.asOf)}.`
+    },
+    {
+      label: 'PROJEÇÃO DE FECHAMENTO DA SAFRA (ESTIMATIVA)',
+      value: `${fmt(ins.projection, 0)} mm`,
+      color: BRAND.ink,
+      text: `Se os próximos meses seguirem a média histórica.${ins.safraAvg ? ` Média das safras anteriores: ${fmt(ins.safraAvg, 0)} mm.` : ''}`
+    },
+    {
+      label: 'DIAS SEM CHUVA',
+      value: ins.currentDry == null ? EM_DASH : `${ins.currentDry} ${ins.currentDry === 1 ? 'dia' : 'dias'}`,
+      color: BRAND.ink,
+      text: ins.lastRain
+        ? `Desde a última chuva (${formatDateBR(ins.lastRain)}).${ins.longestDry.days > 0 ? ` Maior estiagem da safra: ${ins.longestDry.days} dias, entre ${formatDateBR(ins.longestDry.from)} e ${formatDateBR(ins.longestDry.to)}.` : ''}`
+        : 'Nenhuma chuva registrada na safra até a data.'
+    }
+  ];
+  rows.forEach((r, i) => {
+    const ry = y + 4 + i * 17;
+    if (i > 0) { doc.setDrawColor(...BRAND.line); doc.line(margin + 4, ry - 2.2, margin + colW - 4, ry - 2.2); }
+    font('bold', 6.3, BRAND.subtle);
+    doc.text(r.label, margin + 4, ry + 1.6);
+    font('bold', 11, r.color);
+    doc.text(r.value, margin + 4, ry + 7.2);
+    font('normal', 6.3, BRAND.muted);
+    doc.text(doc.splitTextToSize(r.text, colW - 8).slice(0, 2), margin + 4, ry + 10.6);
+  });
+
+  // Coluna direita: perfil por intensidade (dias e participação no volume)
+  const x2 = margin + colW + gap;
+  doc.setFillColor(...BRAND.card);
+  doc.setDrawColor(...BRAND.line);
+  doc.roundedRect(x2, y, colW, boxH, 1.5, 1.5, 'FD');
+  font('bold', 6.3, BRAND.subtle);
+  doc.text('CHUVAS POR INTENSIDADE NA SAFRA', x2 + 4, y + 5.6);
+  font('normal', 6, BRAND.subtle);
+  doc.text('dias  •  % do volume', x2 + colW - 4, y + 5.6, { align: 'right' });
+
+  const barX = x2 + 30;
+  const barMaxW = colW - 30 - 26;
+  const maxDays = Math.max(1, ...ins.profile.map(p => p.days));
+  ins.profile.forEach((p, i) => {
+    const by = y + 10.5 + i * 7.6;
+    font('bold', 7, BRAND.text);
+    doc.text(p.label, x2 + 4, by + 2.6);
+    font('normal', 5.6, BRAND.subtle);
+    doc.text(p.range, x2 + 4, by + 5.4);
+    doc.setFillColor(...BRAND.zebra);
+    doc.roundedRect(barX, by, barMaxW, 3.6, 0.8, 0.8, 'F');
+    if (p.days > 0) {
+      doc.setFillColor(...p.color);
+      doc.roundedRect(barX, by, Math.max(1.6, (p.days / maxDays) * barMaxW), 3.6, 0.8, 0.8, 'F');
+    }
+    font('bold', 7, BRAND.ink);
+    doc.text(String(p.days), x2 + colW - 15, by + 2.9, { align: 'right' });
+    font('normal', 7, BRAND.muted);
+    doc.text(`${ins.total > 0 ? Math.round((p.mm / ins.total) * 100) : 0}%`, x2 + colW - 4, by + 2.9, { align: 'right' });
+  });
+
+  doc.setDrawColor(...BRAND.line);
+  doc.line(x2 + 4, y + 42, x2 + colW - 4, y + 42);
+  font('normal', 6.5, BRAND.text);
+  const summary = ins.rainyDays === 0
+    ? 'Ainda não houve chuva nesta safra.'
+    : ins.heavyDays > 0
+      ? `Chuvas de 25 mm ou mais vieram em ${ins.heavyDays} de ${ins.rainyDays} dias com chuva e somaram ${ins.heavyShare}% do volume da safra.`
+      : `Todas as ${ins.rainyDays} chuvas da safra ficaram abaixo de 25 mm.`;
+  doc.text(doc.splitTextToSize(summary, colW - 8).slice(0, 2), x2 + 4, y + 46.5);
+
+  return y + boxH;
+}
+
 export async function generatePluviometroPDF({
   selectedSafra,
   currentSafraMetrics,
@@ -162,7 +318,10 @@ export async function generatePluviometroPDF({
   safraMetricsMap,
   availableSafras,
   recentRecords,
-  historicalMonthAvg = {}
+  historicalMonthAvg = {},
+  safraRecords = [],
+  asOfDate = null,
+  reportLabel = null
 }) {
   const jsPDF = (await import('jspdf')).default;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
@@ -237,7 +396,7 @@ export async function generatePluviometroPDF({
   const now = new Date();
   const pad = (n) => String(n).padStart(2, '0');
   font('normal', 7.5, BRAND.subtle);
-  doc.text(`Emissão: ${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} às ${pad(now.getHours())}:${pad(now.getMinutes())}`, titleX, 20);
+  doc.text(`${reportLabel ? `${reportLabel} • ` : ''}Emissão: ${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} às ${pad(now.getHours())}:${pad(now.getMinutes())}`, titleX, 20);
 
   doc.setFillColor(...BRAND.orange);
   doc.rect(0, 24.2, pageWidth, 1.2, 'F');
@@ -479,7 +638,11 @@ export async function generatePluviometroPDF({
       const note = doc.splitTextToSize(r.notes || 'Leitura registrada', itemW - 6).slice(0, 2);
       doc.text(note, rx + 3, y + 13.6);
     });
+    y += itemH + 9;
   }
+
+  // 6. RITMO DA SAFRA E PERFIL DAS CHUVAS (fecha a página 2)
+  drawSafraInsights({ doc, font, sectionTitle, y, margin, contentWidth, pageHeight, progression, historicalMonthAvg, safraMetricsMap, selectedSafra, safraRecords, asOfDate, total: currentSafraMetrics?.total_mm || 0 });
 
   drawFooter('Página 2 de 2');
 
