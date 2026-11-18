@@ -98,12 +98,23 @@ async function captureElementAsImage(elementId) {
       backgroundColor: '#ffffff',
       // Controles interativos (botões, chips) têm data-html2canvas-ignore e não entram na captura
       onclone: (clonedDoc) => {
+        // A cópia da página recomeça as animações de entrada (que partem de opacidade 0):
+        // sem isso o cartão pode sair em branco
+        const style = clonedDoc.createElement('style');
+        // O html2canvas desenha a Amsi Pro uns 5 px abaixo do navegador: a bolinha de cor
+        // dos chips desce junto, para continuar alinhada com o nome da safra
+        style.textContent = '*,*::before,*::after{animation:none!important;transition:none!important}'
+          + `#${elementId} .chip{border-color:transparent!important;background:transparent!important;padding-left:0!important}`
+          + `#${elementId} .chip > span:first-child{position:relative;top:5px}`;
+        clonedDoc.head.appendChild(style);
         const card = clonedDoc.getElementById(elementId);
         if (!card) return;
+        card.style.opacity = '1';
+        card.style.transform = 'none';
         // Sem moldura de card: o gráfico entra "limpo" na página
         Object.assign(card.style, {
           border: 'none', boxShadow: 'none', background: '#ffffff',
-          backdropFilter: 'none', borderRadius: '0', padding: '0'
+          backdropFilter: 'none', borderRadius: '0', padding: '0 0 14px 0'
         });
       }
     });

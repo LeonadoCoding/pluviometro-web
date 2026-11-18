@@ -62,7 +62,7 @@ export default function ProgressionChart({ progression, selectedSafra, historica
         actions={<div data-html2canvas-ignore="true"><Segmented label="Modo do gráfico" options={MODES} value={viewMode} onChange={setViewMode} /></div>}
       />
 
-      <div className="w-full flex-1 min-h-[300px] sm:min-h-[320px] -ml-1.5">
+      <div className="w-full h-[300px] sm:h-[320px] -ml-1.5 mt-auto">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={data} margin={{ top: 8, right: showLine && showBars ? 4 : 12, left: -6, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={pal.grid} vertical={false} />

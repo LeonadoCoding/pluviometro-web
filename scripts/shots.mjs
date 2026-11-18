@@ -108,7 +108,7 @@ try {
       msg.error ? p.reject(new Error(msg.error.message)) : p.resolve(msg.result);
     } else if (msg.method === 'Runtime.exceptionThrown') {
       consoleErrors.push(msg.params.exceptionDetails?.exception?.description || 'exceção');
-    } else if (msg.method === 'Runtime.consoleAPICalled' && msg.params.type === 'error') {
+    } else if (msg.method === 'Runtime.consoleAPICalled' && (msg.params.type === 'error' || msg.params.type === 'warning')) {
       consoleErrors.push(msg.params.args.map(a => a.value ?? a.description).join(' '));
     }
   };
@@ -144,6 +144,34 @@ try {
       await sleep(2200);
       await evaluate(`window.scrollTo(0, ${+scroll}); true`);
       await sleep(1500);
+      await shot(scene, false);
+    } else if (kind === 'pdf') {
+      // Boletim de ponta a ponta: abre o modal, baixa o PDF e mede o tema durante e depois da captura
+      const [, theme] = parts;
+      const dir = path.join(OUT, 'pdf');
+      fs.mkdirSync(dir, { recursive: true });
+      for (const f of fs.readdirSync(dir)) fs.rmSync(path.join(dir, f));
+      await cdp('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: dir, eventsEnabled: true });
+      await setViewport(1440, 900, false);
+      await setTheme(theme);
+      await login(PROFILES.admin, theme);
+      await go(APP);
+      await sleep(2600);
+      await evaluate(`${MODALS.pdf}; true`);
+      await sleep(900);
+      await evaluate(`window.__themes = []; new MutationObserver(() => window.__themes.push(document.documentElement.dataset.theme)).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+        [...document.querySelectorAll('button')].find(b => /Baixar boletim/.test(b.textContent)).click(); true`);
+      const t0 = Date.now();
+      let file = null;
+      while (Date.now() - t0 < 60000) {
+        await sleep(500);
+        file = fs.readdirSync(dir).find(f => f.endsWith('.pdf'));
+        if (file) break;
+      }
+      await sleep(800);
+      console.log('arquivo:', file || 'NENHUM', file ? `${fs.statSync(path.join(dir, file)).size} bytes em ${Date.now() - t0} ms` : '');
+      console.log('temas durante a captura:', await evaluate('JSON.stringify(window.__themes)'), '· tema final:', await evaluate('document.documentElement.dataset.theme'), '· preferência:', await evaluate(`localStorage.getItem('pluviometro_theme_preference')`));
+      console.log('aviso no modal:', await evaluate(`[...document.querySelectorAll('[role=dialog] .notice-ok, [role=dialog] .notice-error')].map(n => n.textContent).join(' | ') || '(nenhum)'`));
       await shot(scene, false);
     } else if (kind === 'probe') {
       const [, theme] = parts;
