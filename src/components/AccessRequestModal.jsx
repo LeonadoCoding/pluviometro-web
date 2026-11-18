@@ -26,9 +26,9 @@ function Channel({ href, icon: Icon, tone, title, detail, index }) {
       <span className={`w-11 h-11 rounded-lg flex items-center justify-center flex-shrink-0 ${tone}`}><Icon className="w-5 h-5" /></span>
       <span className="min-w-0 flex-1">
         <b className="block text-[15px] leading-5 text-ink-strong">{title}</b>
-        <span className="block num text-[13px] leading-[18px] text-ink-muted truncate">{detail}</span>
+        <span className="block num text-[13px] leading-[18px] text-ink-muted [overflow-wrap:anywhere]">{detail}</span>
       </span>
-      <ArrowUpRight className="w-4 h-4 text-ink-muted transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-accent-text" />
+      <ArrowUpRight className="w-4 h-4 flex-shrink-0 text-ink-muted transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-accent-text" />
     </a>
   );
 }
@@ -47,8 +47,8 @@ export default function AccessRequestModal({ open, onClose, email }) {
   };
 
   return (
-    <Modal open={open} onClose={onClose} icon={UserPlus} title="Pedir acesso ao Pluviômetro" subtitle="Fale com o administrador pelo canal que preferir" size="sm">
-      <p className="text-[14px] leading-[21px] text-ink">
+    <Modal open={open} onClose={onClose} icon={UserPlus} title="Pedir acesso ao Pluviômetro" subtitle="Fale com o administrador do painel" size="md" initialFocus="#acesso-intro">
+      <p id="acesso-intro" tabIndex={-1} className="text-[14px] leading-[21px] text-ink outline-none">
         Envie seu nome e o e-mail que vai usar para entrar. O cadastro é feito pelo administrador e a senha inicial chega a você por ele.
       </p>
 
@@ -67,13 +67,13 @@ export default function AccessRequestModal({ open, onClose, email }) {
           icon={Mail}
           tone="bg-orange-50 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300"
           title="Enviar e-mail"
-          detail={ADMIN.email}
+          detail={<>{ADMIN.email.split('@')[0]}@<wbr />{ADMIN.email.split('@')[1]}</>}
         />
       </div>
 
-      <div className="mt-4 flex items-center justify-between gap-3 text-[12px] leading-4 text-ink-muted [animation:fade-in_.4s_ease_.25s_both]">
-        <span>{typed ? <>A mensagem já leva o e-mail <b className="text-ink">{typed}</b>.</> : 'Dica: digite seu e-mail no login antes e ele já vai na mensagem.'}</span>
-        <button type="button" onClick={copyEmail} className="btn btn-ghost h-8 px-2 text-[12px] flex-shrink-0" aria-live="polite">
+      <div className="mt-4 pt-4 border-t border-line flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 text-[12.5px] leading-[18px] text-ink-muted [animation:fade-in_.4s_ease_.25s_both]">
+        <span className="min-w-0 [overflow-wrap:anywhere]">{typed ? <>A mensagem já leva o e-mail <b className="text-ink">{typed}</b>.</> : 'Dica: digite seu e-mail no login antes e ele já vai na mensagem.'}</span>
+        <button type="button" onClick={copyEmail} className="btn btn-secondary h-9 px-3 text-[13px] flex-shrink-0 self-start sm:self-auto" aria-live="polite">
           {copied ? <><Check /> Copiado</> : <><Copy /> Copiar e-mail</>}
         </button>
       </div>
