@@ -1,78 +1,62 @@
 /** @type {import('tailwindcss').Config} */
 
-// Identidade visual Oilema (Oilema_Theme.json):
-// #385059 (petróleo) • #F28322 (laranja) • #F26E22 (laranja chama) • #D97E4A (argila)
-// #F2F2F2 / #FCFCFC / #FDFDFB / #FBFBFB (neutros claros)
+// UI Oilema Base: as cores vêm dos tokens em src/styles/tokens.css (claro e escuro).
+// Os nomes semânticos (page, surface, ink, accent...) já trocam de valor com o tema,
+// por isso os componentes não precisam de variantes dark: para cor.
+const v = (name) => `var(--${name})`;
+
 export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
-  darkMode: 'class',
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  darkMode: ['selector', '[data-theme="dark"]'],
   theme: {
     extend: {
       colors: {
+        page: v('page'),
+        surface: { DEFAULT: v('surface'), sunken: v('surface-sunken'), control: v('surface-control') },
+        line: v('line'),
+        ink: { DEFAULT: v('ink'), strong: v('ink-strong'), muted: v('ink-muted') },
+        accent: { DEFAULT: v('accent'), text: v('accent-text'), on: v('on-accent') },
+        success: v('success'),
+        warning: v('warning'),
+        danger: v('danger'),
         oilema: {
-          petrol: '#385059',
-          orange: '#F28322',
-          flame: '#F26E22',
-          clay: '#D97E4A',
-          mist: '#F2F2F2',
-          snow: '#FCFCFC',
+          petrol: v('oilema-petrol'),
+          orange: v('oilema-orange'),
+          flame: v('oilema-flame'),
+          clay: v('oilema-clay'),
+          peach: v('oilema-peach')
         },
-        // Cor primária (mantém o nome "rain" usado nos componentes) → Laranja Oilema
-        rain: {
-          50: '#FEF5EC',
-          100: '#FDE8D3',
-          200: '#FBCFA6',
-          300: '#F8B072',
-          400: '#F5994A',
-          500: '#F28322',
-          600: '#D2651B',
-          700: '#A84F14',
-          800: '#863F14',
-          900: '#6D3514',
-          950: '#3B1A08',
+        orange: {
+          50: '#fef5ec', 100: '#fde8d3', 200: '#fbcfa6', 300: '#f8b072', 400: '#f5994a',
+          500: '#f28322', 600: '#d2651b', 700: '#a84f14', 800: '#863f14', 900: '#6d3514', 950: '#3b1a08'
         },
-        // Cor secundária (mantém o nome "sky") → Argila Oilema
-        sky: {
-          50: '#FBF3EE',
-          100: '#F6E2D5',
-          200: '#EDC4AB',
-          300: '#E4A47D',
-          400: '#DE9061',
-          500: '#D97E4A',
-          600: '#BC6535',
-          700: '#97502C',
-          800: '#784027',
-          900: '#623622',
-          950: '#341A0F',
+        clay: {
+          50: '#fbf3ee', 100: '#f6e2d5', 200: '#edc4ab', 300: '#e4a47d', 400: '#de9061',
+          500: '#d97e4a', 600: '#bc6535', 700: '#97502c', 800: '#784027', 900: '#623622', 950: '#341a0f'
         },
-        // Neutros com o tom petróleo da marca (700 = #385059)
-        slate: {
-          50: '#F5F7F7',
-          100: '#ECF0F1',
-          200: '#DCE3E5',
-          300: '#BCC9CD',
-          400: '#8DA0A7',
-          500: '#627880',
-          600: '#4A626B',
-          700: '#385059',
-          800: '#273B43',
-          900: '#1A2B31',
-          950: '#111E23',
-        },
-        agro: {
-          50: '#f0fdf4',
-          100: '#dcfce7',
-          200: '#bbf7d0',
-          500: '#22c55e',
-          600: '#16a34a',
-          700: '#15803d',
-          800: '#166534',
+        petrol: {
+          50: '#f5f7f7', 100: '#ecf0f1', 200: '#dce3e5', 300: '#bcc9cd', 400: '#8da0a7',
+          500: '#627880', 600: '#4a626b', 700: '#385059', 800: '#273b43', 900: '#1a2b31', 950: '#111e23'
         }
-      }
-    },
+      },
+      fontFamily: {
+        sans: ['"Amsi Pro"', '"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+        display: ['"Amsi Pro Condensed"', '"Amsi Pro"', '"Plus Jakarta Sans"', 'system-ui', 'sans-serif']
+      },
+      borderRadius: {
+        sm: '4px', md: '8px', lg: '12px', xl: '16px', '2xl': '24px'
+      },
+      boxShadow: {
+        card: v('shadow-card'),
+        'card-hover': v('shadow-card-hover'),
+        accent: v('shadow-accent'),
+        modal: v('shadow-modal')
+      },
+      maxWidth: { content: '1280px' },
+      height: { control: '36px', field: '42px' },
+      minHeight: { control: '36px', field: '42px' },
+      transitionTimingFunction: { out: 'cubic-bezier(.2,.8,.2,1)' }
+    }
   },
-  plugins: [],
-}
+  plugins: []
+};

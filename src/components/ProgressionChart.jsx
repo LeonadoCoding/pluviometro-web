@@ -1,182 +1,102 @@
-import React, { useState } from 'react';
-import {
-  ResponsiveContainer,
-  ComposedChart,
-  Bar,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Legend,
-  CartesianGrid
-} from 'recharts';
-import { BarChart3, TrendingUp, Layers } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid, Cell } from 'recharts';
+import { BarChart3 } from 'lucide-react';
+import { PanelHeader, Segmented } from './ui/primitives';
+import { chartPalette, axisTick, fmtMm, fmtAxis, TooltipBox, useNarrow, monthTick, TooltipRow, Legend } from './charts/chartTheme';
 
-export default function ProgressionChart({ progression, selectedSafra, isDark = true, animate = true }) {
-  const [viewMode, setViewMode] = useState('combined'); // 'combined', 'monthly', 'cumulative'
+const MODES = [
+  { value: 'combined', label: 'Combinado' },
+  { value: 'monthly', label: 'Mensal' },
+  { value: 'cumulative', label: 'Acumulado' }
+];
+
+export default function ProgressionChart({ progression, selectedSafra, historicalMonthAvg = {}, isDark = true, animate = true }) {
+  const [viewMode, setViewMode] = useState('combined');
+  const pal = chartPalette(isDark);
+  const narrow = useNarrow();
+
+  const data = useMemo(() => {
+    const currentIdx = (progression || []).findIndex((p, i, arr) => !p.isFuture && (arr[i + 1]?.isFuture ?? true) && p.cumulative != null);
+    return (progression || []).map((p, i) => ({
+      ...p,
+      hist: historicalMonthAvg?.[p.monthCode] ?? null,
+      inProgress: i === currentIdx && progression.some(x => x.isFuture)
+    }));
+  }, [progression, historicalMonthAvg]);
 
   if (!progression || progression.length === 0) return null;
 
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      return (
-        <div className="bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-700/80 rounded-xl p-3 shadow-2xl backdrop-blur-md text-xs space-y-1.5 min-w-[200px]">
-          <div className="font-bold text-sm text-slate-900 dark:text-white flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-1.5 mb-1.5">
-            <span>{data.monthName} ({data.year})</span>
-            <span className="text-rain-600 dark:text-rain-400 font-mono">{data.monthCode}</span>
-          </div>
-          <div className="flex justify-between items-center text-slate-600 dark:text-slate-300">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-rain-500 inline-block"></span>
-              Total do Mês:
-            </span>
-            <span className="font-bold text-slate-900 dark:text-white">{data.monthTotal.toLocaleString('pt-BR')} mm</span>
-          </div>
-          <div className="flex justify-between items-center text-slate-600 dark:text-slate-300">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block"></span>
-              Média Diária:
-            </span>
-            <span className="font-bold text-emerald-600 dark:text-emerald-400">{data.dailyAverage.toLocaleString('pt-BR')} mm/dia</span>
-          </div>
-          <div className="flex justify-between items-center text-slate-600 dark:text-slate-300">
-            <span className="text-slate-400">Dias no Mês:</span>
-            <span className="text-slate-700 dark:text-slate-200">{data.daysInMonth} dias ({data.rainyDays} c/ chuva)</span>
-          </div>
-          <div className="flex justify-between items-center text-slate-600 dark:text-slate-300 border-t border-slate-200 dark:border-slate-800 pt-1.5 mt-1.5">
-            <span className="flex items-center gap-1.5 text-slate-700 dark:text-slate-200">
-              <span className="w-2.5 h-2.5 rounded-full bg-oilema-petrol dark:bg-slate-300 inline-block"></span>
-              Acumulado até o mês:
-            </span>
-            <span className="font-extrabold text-oilema-petrol dark:text-slate-100">{data.cumulative != null ? `${data.cumulative.toLocaleString('pt-BR')} mm` : '—'}</span>
-          </div>
+  const showBars = viewMode !== 'cumulative';
+  const showLine = viewMode !== 'monthly';
+  const showHist = viewMode === 'monthly';
+
+  const TooltipContent = ({ active, payload }) => {
+    if (!active || !payload?.length) return null;
+    const d = payload[0].payload;
+    return (
+      <TooltipBox title={`${d.monthName} (${d.year})`} aside={d.inProgress ? 'em andamento' : d.isFuture ? 'ainda não começou' : null}>
+        <TooltipRow color={pal.c1} label="Chuva no mês" value={d.isFuture ? '—' : fmtMm(d.monthTotal)} />
+        <TooltipRow label="Média diária" value={d.isFuture ? '—' : `${d.dailyAverage.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} mm/dia`} />
+        <TooltipRow label="Dias com chuva" value={d.isFuture ? '—' : `${d.rainyDays} de ${d.daysInMonth}`} />
+        {d.hist != null && <TooltipRow color={pal.axis} dashed label="Média histórica" value={fmtMm(d.hist)} />}
+        <div className="pt-1.5 mt-1.5 border-t border-line">
+          <TooltipRow color={pal.c2} label="Acumulado da safra" value={fmtMm(d.cumulative)} strong />
         </div>
-      );
-    }
-    return null;
+      </TooltipBox>
+    );
   };
 
-  const gridColor = isDark ? '#273B43' : '#DCE3E5';
-  const axisColor = isDark ? '#8DA0A7' : '#627880';
-  // Barras em laranja Oilema; curva acumulada em petróleo (clareada no tema escuro)
-  const barColor = '#F28322';
-  const lineColor = isDark ? '#BCC9CD' : '#385059';
+  const legend = [
+    showBars && { color: pal.c1, label: viewMode === 'combined' ? 'Chuva do mês (eixo esquerdo)' : 'Chuva do mês' },
+    showHist && { color: pal.axis, label: 'Média histórica do mês', dashed: true },
+    showLine && { color: pal.c2, label: viewMode === 'combined' ? 'Acumulado da safra (eixo direito)' : 'Acumulado da safra', line: true }
+  ].filter(Boolean);
 
   return (
-    <div id="chart-progression-card" className="glass-panel rounded-2xl p-4 sm:p-6 relative transition-colors flex flex-col">
-      <div className="flex flex-col sm:flex-row lg:flex-col sm:items-center lg:items-start justify-between gap-3 mb-4">
-        <div>
-          <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-rain-600 dark:text-rain-400" />
-            Progresso Pluviométrico na Safra {selectedSafra}
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Evolução mês a mês no ciclo agronômico (Outubro a Setembro)
-          </p>
-        </div>
+    <div id="chart-progression-card" className="panel panel-pad flex flex-col enter" style={{ '--i': 5 }}>
+      <PanelHeader
+        icon={BarChart3}
+        title="Chuva mês a mês"
+        subtitle={`Safra ${selectedSafra}, de outubro a setembro · valores em mm`}
+        className="sm:flex-row lg:flex-col 2xl:flex-row"
+        actions={<div data-html2canvas-ignore="true"><Segmented label="Modo do gráfico" options={MODES} value={viewMode} onChange={setViewMode} /></div>}
+      />
 
-        {/* Seletor de Modo de Visualização */}
-        <div data-html2canvas-ignore="true" className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200 dark:border-slate-700/60 self-start sm:self-auto lg:self-start shrink-0">
-          <button
-            onClick={() => setViewMode('combined')}
-            className={`px-2.5 py-1 text-xs font-semibold rounded-lg whitespace-nowrap transition ${
-              viewMode === 'combined'
-                ? 'bg-rain-500 text-white shadow-sm'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            Combinado
-          </button>
-          <button
-            onClick={() => setViewMode('monthly')}
-            className={`px-2.5 py-1 text-xs font-semibold rounded-lg whitespace-nowrap transition ${
-              viewMode === 'monthly'
-                ? 'bg-rain-500 text-white shadow-sm'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            Mensal
-          </button>
-          <button
-            onClick={() => setViewMode('cumulative')}
-            className={`px-2.5 py-1 text-xs font-semibold rounded-lg whitespace-nowrap transition ${
-              viewMode === 'cumulative'
-                ? 'bg-rain-500 text-white shadow-sm'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            Acumulado
-          </button>
-        </div>
-      </div>
-
-      {/* Gráfico Recharts */}
-      <div className="w-full flex-1 min-h-[18rem] sm:min-h-[20rem] -ml-2 sm:ml-0">
+      <div className="w-full flex-1 min-h-[300px] sm:min-h-[320px] -ml-1.5">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={progression} margin={{ top: 15, right: 15, left: -10, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
-            <XAxis
-              dataKey="monthCode"
-              stroke={axisColor}
-              fontSize={11}
-              tickLine={false}
-              axisLine={{ stroke: axisColor }}
-            />
-            <YAxis
-              yAxisId="left"
-              stroke={axisColor}
-              fontSize={11}
-              tickLine={false}
-              axisLine={false}
-            />
-            {viewMode === 'combined' && (
-              <YAxis
-                yAxisId="right"
-                orientation="right"
-                stroke={lineColor}
-                fontSize={11}
-                tickLine={false}
-                axisLine={false}
-                />
-            )}
-            <Tooltip content={<CustomTooltip />} />
-            <Legend
-              wrapperStyle={{ paddingTop: 10, fontSize: 12 }}
-              formatter={(value) => (
-                <span className="text-slate-600 dark:text-slate-300 text-xs font-medium">{value}</span>
-              )}
-            />
+          <ComposedChart data={data} margin={{ top: 8, right: showLine && showBars ? 4 : 12, left: -6, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={pal.grid} vertical={false} />
+            <XAxis dataKey="monthCode" tick={axisTick(pal.axis)} tickLine={false} axisLine={{ stroke: pal.grid }} interval={0} tickMargin={8} tickFormatter={monthTick(narrow)} />
+            <YAxis yAxisId="left" tick={axisTick(pal.axis)} tickLine={false} axisLine={false} tickFormatter={fmtAxis} width={narrow ? 36 : 46} />
+            {viewMode === 'combined' && <YAxis yAxisId="right" orientation="right" tick={axisTick(pal.c2)} tickLine={false} axisLine={false} tickFormatter={fmtAxis} width={narrow ? 40 : 50} />}
+            <Tooltip content={<TooltipContent />} cursor={{ fill: isDark ? 'rgba(255,255,255,.04)' : 'rgba(56,80,89,.06)' }} />
 
-            {(viewMode === 'combined' || viewMode === 'monthly') && (
-              <Bar
-                yAxisId="left"
-                dataKey="monthTotal"
-                name="Chuva do Mês (mm)"
-                fill={barColor}
-                radius={[6, 6, 0, 0]}
-                isAnimationActive={animate}
-                maxBarSize={40}
-              />
+            {showBars && (
+              <Bar yAxisId="left" dataKey="monthTotal" name="Chuva do mês" radius={[5, 5, 0, 0]} isAnimationActive={animate} animationDuration={700} maxBarSize={36}>
+                {data.map((d) => <Cell key={d.monthCode} fill={d.inProgress ? pal.soft : pal.c1} />)}
+              </Bar>
             )}
-
-            {(viewMode === 'combined' || viewMode === 'cumulative') && (
+            {showHist && (
+              <Line yAxisId="left" type="monotone" dataKey="hist" name="Média histórica" stroke={pal.axis} strokeWidth={2} strokeDasharray="5 4" dot={false} activeDot={false} isAnimationActive={animate} />
+            )}
+            {showLine && (
               <Line
                 yAxisId={viewMode === 'combined' ? 'right' : 'left'}
                 type="monotone"
                 dataKey="cumulative"
-                name="Acumulado da Safra (mm)"
-                stroke={lineColor}
+                name="Acumulado da safra"
+                stroke={pal.c2}
                 strokeWidth={3}
                 isAnimationActive={animate}
-                dot={{ r: 4, fill: lineColor, strokeWidth: 2, stroke: isDark ? '#1A2B31' : '#FCFCFC' }}
-                activeDot={{ r: 6, fill: barColor }}
+                animationDuration={900}
+                dot={{ r: 3.5, fill: pal.c2, strokeWidth: 2, stroke: pal.surface }}
+                activeDot={{ r: 6, fill: pal.c1, stroke: pal.surface, strokeWidth: 2 }}
               />
             )}
           </ComposedChart>
         </ResponsiveContainer>
       </div>
-
+      <Legend items={legend} />
     </div>
   );
 }

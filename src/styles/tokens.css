@@ -1,0 +1,285 @@
+/* UI Oilema Base — tokens (cópia de tokens.css do sistema de design). Não edite à mão: atualize a partir do artefato. */
+:root, [data-theme="light"] {
+  --page: #f5f7f7; /* Fundo da página, atrás de cards, cabeçalho e barra inferior. */
+  --surface: #ffffff; /* Cards, painéis, modais, cabeçalho e tela de login. */
+  --surface-sunken: #f5f7f7; /* Campos de formulário, blocos internos de modais e linhas zebradas. */
+  --surface-control: #ecf0f1; /* Botões secundários, seletores e grupos de abas. */
+  --line: #dce3e5; /* Bordas de cards, campos e divisórias. Decorativa: nunca carrega significado sozinha. */
+  --ink-strong: #1a2b31; /* Títulos e valores sobre surface e page. 14,6:1 claro, 14,9:1 escuro. */
+  --ink: #273b43; /* Texto corrido sobre surface e page. 11,7:1 claro, 12,8:1 escuro. */
+  --ink-muted: #627880; /* Subtítulos, legendas e rótulos secundários sobre surface (4,65:1 claro, 5,4:1 escuro). Sobre page no claro: 4,32:1 — prefira surface atrás dele. */
+  --accent: var(--oilema-orange); /* A cor da ação: botão principal, aba ativa, chave ligada, série principal dos gráficos. Igual nos dois temas. */
+  --accent-text: #d2651b; /* Texto e ícones laranja sobre surface: números em destaque, unidades, ícones de título. Escuro 6,65:1. Claro 3,74:1 sobre branco — só em negrito ou a partir de 18px; para texto pequeno use orange-700. */
+  --on-accent: #ffffff; /* Texto e ícones sobre accent e o degradê laranja. 2,61:1: só rótulos em negrito de 13px ou mais; para texto pequeno sobre laranja use ink-strong (5,6:1). */
+  --on-petrol: #ffffff; /* Texto sobre oilema-petrol (botão petróleo, cabeçalho de tabela do PDF). 8,5:1. */
+  --focus: var(--orange-500); /* Anel de foco de 2px. 5,6:1 sobre surface escuro; 2,61:1 sobre branco, abaixo de 3:1 — no claro acompanhe com a borda do campo em petrol-700. */
+  --success: #059669; /* Sucesso, variação positiva, usuário conectado. Sempre com texto ou sinal (+18%). Claro 3,77:1: use em negrito. */
+  --warning: #d97706; /* Atenção, variação negativa, recordes. Sempre com texto ou sinal (−39%). Claro 3,19:1: use em negrito. */
+  --danger: #dc2626; /* Erros e ações destrutivas (excluir). Só para estados de erro, sempre com texto. */
+  --wave-front: #fad9b9; /* Onda da frente (pêssego) nas formas da marca usadas na tela: login, capa, cabeçalho de página. No escuro, tom pêssego rebaixado para não brilhar sobre page. */
+  --wave-back: #c4c9cd; /* Onda de trás (névoa) nas formas da marca usadas na tela. No escuro, igual a petrol-800. */
+  --oilema-petrol: #385059; /* Petróleo da marca: cor da palavra Oilema no logotipo, botão petróleo (exportar/PDF), cabeçalhos de tabela, títulos de documentos. */
+  --oilema-orange: #f28322; /* Laranja da marca e do símbolo. Primária (orange-500). */
+  --oilema-flame: #f26e22; /* Laranja chama: ponto final do degradê dos botões principais. */
+  --oilema-clay: #d97e4a; /* Argila: secundária (clay-500), séries e realces que não são a ação. */
+  --oilema-peach: #fad9b9; /* Pêssego do timbrado: a onda da frente. Só em formas e fundos amplos, nunca atrás de texto pequeno laranja. */
+  --oilema-fog: #c4c9cd; /* Névoa do timbrado: a onda de trás e o texto discreto do rodapé do timbrado. */
+  --oilema-watermark: #e6ecec; /* Marca d'água vertical do timbrado (palavra Oilema). Só decorativa, em papel branco. */
+  --oilema-mist: #f2f2f2; /* Neutro claro: fundo externo de e-mails. */
+  --oilema-snow: #fcfcfc; /* Neutro claro: corpo de e-mails e cards de PDF. */
+  --orange-50: #fef5ec; /* Fundo de selos 'Atual' e da linha de total em tabelas e PDFs. */
+  --orange-100: #fde8d3; /* Fundo de ícones em destaque (badge laranja claro). */
+  --orange-200: #fbcfa6; /* Tinta de apoio em capas e ilustrações. */
+  --orange-300: #f8b072; /* Texto laranja sobre oilema-petrol no tema escuro (botão petróleo escuro). */
+  --orange-400: #f5994a; /* accent-text no tema escuro. */
+  --orange-500: #f28322; /* Laranja Oilema: primária. Igual a oilema-orange. */
+  --orange-600: #d2651b; /* accent-text no tema claro; hover dos botões principais. */
+  --orange-700: #a84f14; /* Texto laranja sobre fundos claros tingidos (orange-50/100): 5,9:1 sobre orange-50. */
+  --orange-800: #863f14; /* Degrau 800 da escala laranja. */
+  --orange-900: #6d3514; /* Degrau 900 da escala laranja. */
+  --orange-950: #3b1a08; /* Tinta mais escura da escala laranja. */
+  --clay-50: #fbf3ee; /* Degrau 50 da escala argila. */
+  --clay-100: #f6e2d5; /* Degrau 100 da escala argila. */
+  --clay-200: #edc4ab; /* Degrau 200 da escala argila. */
+  --clay-300: #e4a47d; /* Degrau 300 da escala argila. */
+  --clay-400: #de9061; /* Texto argila no tema escuro. */
+  --clay-500: #d97e4a; /* Argila: cor secundária. Igual a oilema-clay. */
+  --clay-600: #bc6535; /* Texto argila no tema claro (negrito). */
+  --clay-700: #97502c; /* Degrau 700 da escala argila. */
+  --clay-800: #784027; /* Degrau 800 da escala argila. */
+  --clay-900: #623622; /* Degrau 900 da escala argila. */
+  --clay-950: #341a0f; /* Degrau 950 da escala argila. */
+  --petrol-50: #f5f7f7; /* page e surface-sunken (claro); zebrado de tabelas. */
+  --petrol-100: #ecf0f1; /* surface-control (claro). */
+  --petrol-200: #dce3e5; /* line (claro). */
+  --petrol-300: #bcc9cd; /* Trilho da chave desligada (claro); chart-2 no escuro. */
+  --petrol-400: #8da0a7; /* ink-muted e chart-axis (escuro). */
+  --petrol-500: #627880; /* ink-muted e chart-axis (claro). */
+  --petrol-600: #4a626b; /* Degrau 600 dos neutros petróleo. */
+  --petrol-700: #385059; /* Igual a oilema-petrol. */
+  --petrol-800: #273b43; /* line e surface-control (escuro); ink (claro). */
+  --petrol-900: #1a2b31; /* surface (escuro); ink-strong (claro). */
+  --petrol-950: #111e23; /* page (escuro). */
+  --chart-1: var(--oilema-orange); /* Série principal (a do período atual / o realce). Linha de 3px com pontos quando há várias séries. */
+  --chart-2: #385059; /* Segunda série: petróleo; clareada no escuro. Também a linha de acumulado sobre barras chart-1. */
+  --chart-3: #d97e4a; /* Terceira série: argila. */
+  --chart-4: #6f9aa6; /* Quarta série: petróleo claro. */
+  --chart-5: #7a9a5b; /* Quinta série: verde campo. Mais de cinco séries: agrupe em 'Outros' em petrol-300. */
+  --chart-grid: #dce3e5; /* Linhas de grade tracejadas. */
+  --chart-axis: #627880; /* Rótulos e linha dos eixos. */
+  --shadow-card: 0 2px 12px rgba(56, 80, 89, 0.08); /* Sombra base de cards e painéis. */
+  --shadow-card-hover: 0 8px 24px rgba(242, 131, 34, 0.12); /* Cards clicáveis ao passar o mouse; a borda também vira laranja translúcido. */
+  --shadow-accent: 0 10px 15px -3px rgba(242, 131, 34, 0.25), 0 4px 6px -4px rgba(242, 131, 34, 0.25); /* Botões principais laranja. */
+  --shadow-modal: 0 25px 50px -12px rgba(0, 0, 0, 0.25); /* Modais e cartão de login. */
+}
+[data-theme="dark"] {
+  --page: #111e23;
+  --surface: #1a2b31;
+  --surface-sunken: #111e23;
+  --surface-control: #273b43;
+  --line: #273b43;
+  --ink-strong: #ffffff;
+  --ink: #ecf0f1;
+  --ink-muted: #8da0a7;
+  --accent: var(--oilema-orange);
+  --accent-text: #f5994a;
+  --focus: var(--orange-500);
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --wave-front: #3a2e27;
+  --wave-back: #273b43;
+  --chart-1: var(--oilema-orange);
+  --chart-2: #bcc9cd;
+  --chart-grid: #273b43;
+  --chart-axis: #8da0a7;
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.25);
+  --shadow-card-hover: 0 8px 30px rgba(0, 0, 0, 0.35);
+}
+:root {
+  --space-1: 4px; /* Entre ícone e texto pequeno. */
+  --space-2: 8px; /* Entre controles do cabeçalho e itens de lista. */
+  --space-3: 12px; /* Entre cards no celular e dentro de formulários. */
+  --space-4: 16px; /* Padding de card no celular; gutter lateral da página. */
+  --space-5: 20px; /* Entre seções da página e padding dos cards de indicadores. */
+  --space-6: 24px; /* Padding de painéis a partir de 640px. */
+  --space-8: 32px; /* Padding de login e de modais grandes; margem de blocos em documentos. */
+  --size-control: 36px; /* Altura única dos controles do cabeçalho e de barras de ferramentas. */
+  --size-field: 42px; /* Altura dos campos e do botão principal em formulários e login. */
+  --width-content: 1280px; /* Largura máxima do conteúdo, centralizada. */
+  --radius-sm: 4px; /* Selos de tabela e cards de PDF. */
+  --radius-md: 8px; /* Botões do cabeçalho, selects e campos pequenos. */
+  --radius-lg: 12px; /* Campos de formulário, botões de modal e grupos de abas. */
+  --radius-xl: 16px; /* Cards e painéis. */
+  --radius-2xl: 24px; /* Modais e cartão de login. */
+  --radius-full: 9999px; /* Selos, chips, chaves e botões redondos. */
+  --font-sans: "Amsi Pro", "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-display: "Amsi Pro Condensed", "Amsi Pro", "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-web: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --text-display: 900 44px/44px var(--font-display); /* Capas, telas de entrada e títulos de documentos de destaque. Caixa alta, no máximo duas linhas. */
+  --text-brand-title: 700 22px/28px var(--font-display); /* Nome do sistema no cabeçalho e no login, ao lado da logo. Caixa alta. */
+  --text-page-title: 700 22px/28px var(--font-sans); /* Título do cartão de identificação no topo da página (20px no celular). */
+  --text-section-title: 700 19px/26px var(--font-sans); /* Título de cada painel e card grande (17px no celular). */
+  --text-modal-title: 700 17px/24px var(--font-sans); /* Título de modais e de blocos de formulário. */
+  --text-kpi-value: 700 34px/38px var(--font-display); /* Valor principal dos cards de indicadores, com font-variant-numeric: tabular-nums. Sempre seguido da unidade em accent-text (28px no celular). */
+  --text-table-value: 600 15px/20px var(--font-sans); /* Números em tabelas, alinhados à direita, com tabular-nums. */
+  --text-body: 400 15px/22px var(--font-sans); /* Texto de leitura, campos e botões (botões em 600). */
+  --text-body-small: 400 13px/18px var(--font-sans); /* Subtítulos de painel, rodapés de card e legendas. */
+  --text-label: 600 12px/16px var(--font-sans); /* Rótulos em caixa alta de cards, colunas e grupos de formulário. */
+  --text-caption: 400 11px/14px var(--font-sans); /* Notas mínimas: datas sob valores, rótulos da barra inferior do celular. */
+}
+.t-display {
+  font-family: var(--font-display);
+  font-size: 44px;
+  line-height: 44px;
+  font-weight: 900;
+  letter-spacing: 0.01em;
+}
+.t-brand-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.t-page-title {
+  font-family: var(--font-sans);
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.t-section-title {
+  font-family: var(--font-sans);
+  font-size: 19px;
+  line-height: 26px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.t-modal-title {
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 24px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.t-kpi-value {
+  font-family: var(--font-display);
+  font-size: 34px;
+  line-height: 38px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.t-table-value {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.t-body {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 22px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.t-body-small {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.t-label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.t-caption {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+@font-face {
+  font-family: "Amsi Pro";
+  src: url("/fonts/AmsiPro-Light.woff2") format("woff2");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Amsi Pro";
+  src: url("/fonts/AmsiPro-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Amsi Pro";
+  src: url("/fonts/AmsiPro-Italic.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Amsi Pro";
+  src: url("/fonts/AmsiPro-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Amsi Pro";
+  src: url("/fonts/AmsiPro-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Amsi Pro";
+  src: url("/fonts/AmsiPro-Black.woff2") format("woff2");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Amsi Pro Condensed";
+  src: url("/fonts/AmsiProCond-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Amsi Pro Condensed";
+  src: url("/fonts/AmsiProCond-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Amsi Pro Condensed";
+  src: url("/fonts/AmsiProCond-Black.woff2") format("woff2");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("/fonts/PlusJakartaSans-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("/fonts/PlusJakartaSans-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}

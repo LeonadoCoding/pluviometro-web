@@ -1,58 +1,54 @@
-import React, { useState, useEffect } from 'react';
-import { X, CloudRain, Calendar, Check, Plus, AlertCircle } from 'lucide-react';
-import { getSafraFromDate, getTodayDateStr } from '../utils/dates';
+import React, { useState, useEffect, useMemo } from 'react';
+import { CloudRain, Check, AlertTriangle } from 'lucide-react';
+import { getSafraFromDate, getTodayDateStr, formatDateBR } from '../utils/dates';
+import Modal from './ui/Modal';
+import { Notice, Spinner } from './ui/primitives';
 
-export default function QuickEntryModal({
-  isOpen,
-  onClose,
-  onSave,
-  initialDate = null
-}) {
-  const [date, setDate] = useState(initialDate || getTodayDateStr());
+const toInput = (n) => (n == null ? '' : String(n).replace('.', ','));
+const parseMm = (s) => parseFloat(String(s).replace(',', '.'));
+const fmt1 = (n) => (Number(n) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+function shiftDate(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+export default function QuickEntryModal({ isOpen, onClose, onSave, editingRecord = null, records = [] }) {
+  const [date, setDate] = useState(getTodayDateStr());
   const [rainMm, setRainMm] = useState('');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  // Abre limpo para um lançamento novo, ou preenchido com a leitura que está sendo corrigida
   useEffect(() => {
-    if (isOpen) {
-      setDate(initialDate || getTodayDateStr());
-      setRainMm('');
-      setNotes('');
-      setErrorMsg('');
-    }
-  }, [isOpen, initialDate]);
+    if (!isOpen) return;
+    setDate(editingRecord?.date || getTodayDateStr());
+    setRainMm(editingRecord ? toInput(editingRecord.rain_mm) : '');
+    setNotes(editingRecord?.notes || '');
+    setErrorMsg('');
+    setIsSubmitting(false);
+  }, [isOpen, editingRecord]);
 
-  if (!isOpen) return null;
+  const existing = useMemo(() => (editingRecord ? null : records.find(r => r.date === date)), [records, date, editingRecord]);
+  const today = getTodayDateStr();
+  const yesterday = shiftDate(-1);
+  const isFutureDate = date > today;
 
-  const currentSafraCalculated = getSafraFromDate(date);
-
-  const handleQuickAdd = (amount) => {
-    const current = parseFloat(rainMm.replace(',', '.')) || 0;
-    const nextVal = Math.round((current + amount) * 10) / 10;
-    setRainMm(String(nextVal));
-  };
-
-  const handleSetYesterday = () => {
-    const d = new Date();
-    d.setDate(d.getDate() - 1);
-    const yStr = d.toISOString().split('T')[0];
-    setDate(yStr);
-  };
-
-  const handleSetToday = () => {
-    setDate(getTodayDateStr());
+  const quickAdd = (amount) => {
+    const current = parseMm(rainMm) || 0;
+    setRainMm(toInput(Math.round((current + amount) * 10) / 10));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
-
-    const parsed = typeof rainMm === 'string' ? parseFloat(rainMm.replace(',', '.')) : parseFloat(rainMm);
-    if (isNaN(parsed) || parsed < 0) {
-      setErrorMsg('Por favor, informe um valor válido em milímetros (ex: 15.5).');
-      return;
-    }
+    const parsed = parseMm(rainMm);
+    if (!date) { setErrorMsg('Escolha a data da leitura.'); return; }
+    if (isFutureDate) { setErrorMsg('A data da leitura não pode ser depois de hoje.'); return; }
+    if (Number.isNaN(parsed) || parsed < 0) { setErrorMsg('Informe o volume em milímetros, por exemplo 15,5.'); return; }
+    if (parsed > 400) { setErrorMsg('Volume acima de 400 mm em um dia. Confira a leitura.'); return; }
 
     setIsSubmitting(true);
     try {
@@ -64,167 +60,85 @@ export default function QuickEntryModal({
       });
       onClose();
     } catch (err) {
-      setErrorMsg(err.message || 'Erro ao salvar registro.');
-    } finally {
+      setErrorMsg(err.message || 'Não foi possível gravar a leitura.');
       setIsSubmitting(false);
     }
   };
 
+  const chip = (active) => `h-8 px-3 rounded-md text-[13px] font-semibold border transition-colors ${active ? 'bg-accent text-ink-strong border-transparent' : 'bg-surface-control text-ink border-line hover:border-petrol-400'}`;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-sm transition-opacity">
-      
-      <div className="w-full sm:max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-t-3xl sm:rounded-2xl shadow-2xl p-5 sm:p-6 overflow-hidden max-h-[92vh] overflow-y-auto">
-        
-        {/* Header do Modal */}
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-rain-500/10 dark:bg-rain-500/20 text-rain-600 dark:text-rain-400 flex items-center justify-center">
-              <CloudRain className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">Lançamento de Chuva</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Entrada ágil diária de pluviometria</p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white transition"
-          >
-            <X className="w-5 h-5" />
+    <Modal
+      open={isOpen}
+      onClose={onClose}
+      icon={CloudRain}
+      title={editingRecord ? 'Corrigir leitura' : 'Lançar chuva'}
+      subtitle={editingRecord ? `Leitura de ${formatDateBR(editingRecord.date)}` : 'Leitura do pluviômetro, em milímetros'}
+      initialFocus="#rain-mm"
+      footer={
+        <>
+          <button type="button" onClick={onClose} className="btn btn-secondary btn-lg">Cancelar</button>
+          <button type="submit" form="quick-entry" disabled={isSubmitting} className="btn btn-primary btn-lg sm:min-w-[180px]">
+            {isSubmitting ? <><Spinner /> Gravando…</> : <><Check strokeWidth={2.5} /> {editingRecord ? 'Gravar correção' : 'Gravar leitura'}</>}
           </button>
-        </div>
+        </>
+      }
+    >
+      <form id="quick-entry" onSubmit={handleSubmit} className="space-y-5" noValidate>
+        {errorMsg && <Notice>{errorMsg}</Notice>}
 
-        {errorMsg && (
-          <div className="mt-3 p-3 rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-xs flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 flex-shrink-0" />
-            <span>{errorMsg}</span>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-          
-          {/* Campo de Data com Atalhos Hoje/Ontem */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-rain-600 dark:text-rain-400" />
-                Data da Leitura
-              </label>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={handleSetToday}
-                  className="text-[11px] px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition"
-                >
-                  Hoje
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSetYesterday}
-                  className="text-[11px] px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition"
-                >
-                  Ontem
-                </button>
-              </div>
-            </div>
-
-            <div className="relative">
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                required
-                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-rain-500 cursor-pointer"
-              />
-            </div>
-            <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
-              <span>Safra Calculada: <strong className="text-rain-600 dark:text-rain-400 font-bold">{currentSafraCalculated}</strong></span>
-              <span>Ciclo Out-Set</span>
-            </div>
-          </div>
-
-          {/* Campo de Volume de Chuva em mm (Mobile-first, fonte grande e inputMode decimal) */}
-          <div>
-            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 block">
-              Precipitação Registrada (milímetros)
-            </label>
-            <div className="relative flex items-center">
-              <input
-                type="text"
-                inputMode="decimal"
-                pattern="[0-9]*[.,]?[0-9]*"
-                placeholder="0.0"
-                value={rainMm}
-                onChange={(e) => setRainMm(e.target.value)}
-                autoFocus
-                required
-                className="w-full bg-slate-50 dark:bg-slate-950 border-2 border-rain-500/40 focus:border-rain-500 rounded-2xl px-4 py-3 text-3xl font-extrabold text-slate-900 dark:text-white font-mono placeholder:text-slate-300 dark:placeholder:text-slate-700 focus:outline-none focus:ring-4 focus:ring-rain-500/20"
-              />
-              <div className="absolute right-4 text-base font-bold text-rain-600 dark:text-rain-400 pointer-events-none">
-                mm
-              </div>
-            </div>
-
-            {/* Chips de Incremento Rápido (+1, +5, +10, +25, +50 mm) */}
-            <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
-              <span className="text-[11px] text-slate-500 dark:text-slate-400 mr-1 flex items-center gap-0.5">
-                <Plus className="w-3 h-3" /> Atalhos:
-              </span>
-              {[1, 5, 10, 20, 50].map((amt) => (
-                <button
-                  key={amt}
-                  type="button"
-                  onClick={() => handleQuickAdd(amt)}
-                  className="px-2.5 py-1 text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 active:scale-95 text-sky-700 dark:text-sky-300 rounded-lg border border-slate-200 dark:border-slate-700 transition"
-                >
-                  +{amt}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => setRainMm('0')}
-                className="px-2.5 py-1 text-xs font-semibold bg-slate-100 dark:bg-slate-800/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg transition"
-              >
-                0 mm
-              </button>
-            </div>
-          </div>
-
-          {/* Observações Opcionais */}
-          <div>
-            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 block">
-              Observações (opcional)
-            </label>
+        <div>
+          <label htmlFor="rain-mm" className="field-label">Volume de chuva</label>
+          <div className="relative">
             <input
+              id="rain-mm"
               type="text"
-              placeholder="Ex: Chuva torrencial c/ granizo, medição das 07h..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-rain-500"
+              inputMode="decimal"
+              autoComplete="off"
+              placeholder="0,0"
+              value={rainMm}
+              onChange={(e) => setRainMm(e.target.value.replace(/[^\d.,]/g, ''))}
+              className="input num h-[72px] rounded-xl text-[40px] font-display font-bold pl-5 pr-16 tracking-tight"
             />
+            <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[18px] font-bold text-accent-text pointer-events-none">mm</span>
           </div>
-
-          {/* Botão de Envio */}
-          <div className="pt-2">
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full py-3.5 bg-gradient-to-r from-rain-500 to-oilema-flame hover:from-rain-600 hover:to-rain-600 active:scale-[0.98] text-white font-bold text-sm sm:text-base rounded-xl shadow-lg shadow-rain-500/30 flex items-center justify-center gap-2 transition disabled:opacity-50"
-            >
-              {isSubmitting ? (
-                <span>Salvando...</span>
-              ) : (
-                <>
-                  <Check className="w-5 h-5 stroke-[2.5]" />
-                  <span>Confirmar e Salvar</span>
-                </>
-              )}
+          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+            {[1, 5, 10, 20, 50].map((amt) => (
+              <button key={amt} type="button" onClick={() => quickAdd(amt)} className="h-8 px-3 rounded-md text-[13px] font-bold border border-line bg-surface-control text-ink-strong hover:border-[rgba(242,131,34,.6)] hover:text-accent-text active:scale-95 transition num">
+                +{amt}
+              </button>
+            ))}
+            <button type="button" onClick={() => setRainMm('0')} className="h-8 px-3 rounded-md text-[13px] font-semibold text-ink-muted hover:text-ink-strong hover:bg-surface-control transition">
+              Sem chuva (0)
             </button>
           </div>
+        </div>
 
-        </form>
+        <div>
+          <div className="flex items-end justify-between gap-3 mb-1.5">
+            <label htmlFor="rain-date" className="field-label mb-0">Data da leitura</label>
+            {!editingRecord && (
+              <div className="flex gap-1.5">
+                <button type="button" className={chip(date === today)} onClick={() => setDate(today)}>Hoje</button>
+                <button type="button" className={chip(date === yesterday)} onClick={() => setDate(yesterday)}>Ontem</button>
+              </div>
+            )}
+          </div>
+          <input id="rain-date" type="date" value={date} max={today} disabled={Boolean(editingRecord)} onChange={(e) => setDate(e.target.value)} required className="input num disabled:opacity-70" />
+          <p className="hint num">Entra na safra <b className="text-accent-text">{date ? getSafraFromDate(date) : '—'}</b> · ciclo de outubro a setembro</p>
+          {existing && (
+            <div className="notice mt-3 bg-orange-50 border-orange-200 text-orange-800 dark:bg-orange-500/10 dark:border-orange-500/30 dark:text-orange-200" style={{ animation: 'drop-in .25s ease both' }}>
+              <AlertTriangle />
+              <span>Já existe uma leitura de <b className="num">{fmt1(existing.rain_mm)} mm</b> em {formatDateBR(existing.date)}. Gravar substitui o valor.</span>
+            </div>
+          )}
+        </div>
 
-      </div>
-    </div>
+        <div>
+          <label htmlFor="rain-notes" className="field-label">Observação <span className="font-normal text-ink-muted">(opcional)</span></label>
+          <input id="rain-notes" type="text" maxLength={160} placeholder="Ex.: chuva com granizo, leitura às 7h" value={notes} onChange={(e) => setNotes(e.target.value)} className="input" />
+        </div>
+      </form>
+    </Modal>
   );
 }

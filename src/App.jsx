@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Trash2 } from 'lucide-react';
 import Header from './components/Header';
+import IdentityCard from './components/IdentityCard';
 import KpiCards from './components/KpiCards';
 import ProgressionChart from './components/ProgressionChart';
 import HistoricalComparisonChart from './components/HistoricalComparisonChart';
@@ -10,40 +12,38 @@ import BackupModal from './components/BackupModal';
 import NotificationsModal from './components/NotificationsModal';
 import UsersModal from './components/UsersModal';
 import WindyMapCard from './components/WindyMapCard';
-import ForecastInsight from './components/ForecastInsight';
 import LoginModal from './components/LoginModal';
 import LoginScreen from './components/LoginScreen';
 import ChangePasswordModal from './components/ChangePasswordModal';
 import PdfReportModal from './components/PdfReportModal';
 import MobileBottomNav from './components/MobileBottomNav';
+import { useToast, useConfirm } from './components/ui/feedback';
 
-import { getInitialTheme, applyTheme } from './utils/theme';
+import { getInitialTheme, applyTheme, paintTheme } from './utils/theme';
+import { formatDateBR } from './utils/dates';
 import { PDF_CAPTURE_EVENT } from './utils/pdfGenerator';
 import { getCurrentUser, logoutUser, isAuthenticated, getPermissions, refreshCurrentUserRole } from './services/auth';
-import {
-  checkBackendConnection,
-  fetchDashboardData,
-  fetchRecordsList,
-  saveRainRecord,
-  deleteRainRecord
-} from './services/api';
+import { checkBackendConnection, fetchDashboardData, fetchRecordsList, saveRainRecord, deleteRainRecord } from './services/api';
+
+const IS_TEST = import.meta.env.VITE_TEST_INSTANCE === '1';
+const fmt1 = (n) => (Number(n) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 export default function App() {
+  const toast = useToast();
+  const confirm = useConfirm();
+
   const [dashboardData, setDashboardData] = useState(null);
   const [records, setRecords] = useState([]);
   const [selectedSafra, setSelectedSafra] = useState('2026/2027');
-  const [isLocalMode, setIsLocalMode] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
-  // Tema Claro / Escuro
   const [theme, setTheme] = useState(getInitialTheme());
 
-  // Autenticação Segura
   const [currentUser, setCurrentUser] = useState(getCurrentUser());
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
 
-  // Modais e Navegação
   const [isQuickEntryOpen, setIsQuickEntryOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
   const [isBackupOpen, setIsBackupOpen] = useState(false);
@@ -51,70 +51,49 @@ export default function App() {
   const [isUsersOpen, setIsUsersOpen] = useState(false);
   const [isPdfOpen, setIsPdfOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState('dashboard');
-  const [toastMsg, setToastMsg] = useState(null);
 
-  // Aplica o tema na inicialização
-  useEffect(() => {
-    applyTheme(theme);
-  }, [theme]);
+  useEffect(() => { applyTheme(theme); }, [theme]);
 
-  // Durante a captura do PDF: tema claro temporário (sem salvar a preferência) e gráficos sem animação
+  // Durante a captura do PDF: tema claro temporário (sem gravar a preferência) e gráficos sem animação
   const [isCapturingPdf, setIsCapturingPdf] = useState(false);
   useEffect(() => {
     const onCapture = (e) => {
       const active = Boolean(e.detail);
       setIsCapturingPdf(active);
-      const root = document.documentElement;
-      if (active) {
-        root.classList.remove('dark');
-        root.classList.add('light');
-      } else {
-        applyTheme(theme);
-      }
+      paintTheme(active ? 'light' : theme);
     };
     window.addEventListener(PDF_CAPTURE_EVENT, onCapture);
     return () => window.removeEventListener(PDF_CAPTURE_EVENT, onCapture);
   }, [theme]);
   const chartsDark = theme === 'dark' && !isCapturingPdf;
 
+  // Troca de tema com transição curta de cores (só no clique, nunca no carregamento)
   const handleToggleTheme = () => {
-    const nextTheme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(nextTheme);
-    applyTheme(nextTheme);
-  };
-
-  const showToast = (text) => {
-    setToastMsg(text);
-    setTimeout(() => setToastMsg(null), 3500);
+    const root = document.documentElement;
+    root.classList.add('theme-anim');
+    setTimeout(() => root.classList.remove('theme-anim'), 350);
+    setTheme(t => (t === 'dark' ? 'light' : 'dark'));
   };
 
   const loadData = useCallback(async (safraToLoad = null) => {
     setIsLoading(true);
+    setLoadError('');
     try {
       await checkBackendConnection();
-      const currentSafraTarget = safraToLoad || selectedSafra;
-      const { data, isLocalMode: local } = await fetchDashboardData(currentSafraTarget);
-      
-      setIsLocalMode(local);
+      const { data } = await fetchDashboardData(safraToLoad || selectedSafra);
       setDashboardData(data);
-      if (data?.currentSafra && !safraToLoad) {
-        setSelectedSafra(data.currentSafra);
-      }
-
-      const recs = await fetchRecordsList();
-      setRecords(recs);
+      if (data?.currentSafra && !safraToLoad) setSelectedSafra(data.currentSafra);
+      setRecords(await fetchRecordsList());
     } catch (err) {
       console.error('Erro ao carregar dados:', err);
+      setLoadError(err.message || 'Não foi possível carregar os dados.');
+      if (/sess[aã]o|expir/i.test(err.message || '')) setIsLoginOpen(true);
     } finally {
       setIsLoading(false);
     }
   }, [selectedSafra]);
 
-  useEffect(() => {
-    if (currentUser) {
-      loadData();
-    }
-  }, [currentUser]);
+  useEffect(() => { if (currentUser) loadData(); }, [currentUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Perfil de acesso (admin, alimentador, visualizador): conferido no banco a cada abertura do painel
   const permissions = getPermissions(currentUser);
@@ -122,18 +101,19 @@ export default function App() {
     if (!currentUser?.id) return;
     refreshCurrentUserRole()
       .then((updated) => {
-        if (!updated) {
-          logoutUser();
-          setCurrentUser(null);
-          return;
-        }
+        if (!updated) { logoutUser(); setCurrentUser(null); return; }
         if (updated.role !== currentUser.role) setCurrentUser(updated);
       })
       .catch(() => { /* sem conexão: mantém o perfil já conhecido */ });
-  }, [currentUser?.id]);
+  }, [currentUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const denyForRole = (action) => {
-    showToast(`Seu perfil (${permissions.roleLabel}) não permite ${action}.`);
+  const denyForRole = (action) => toast(`Seu perfil (${permissions.roleLabel}) não permite ${action}.`, 'error');
+
+  const requireAuth = (msg) => {
+    if (isAuthenticated()) return true;
+    toast(msg, 'info');
+    setIsLoginOpen(true);
+    return false;
   };
 
   const handleSelectSafra = (safra) => {
@@ -141,73 +121,49 @@ export default function App() {
     loadData(safra);
   };
 
-  // Verificação de autenticação antes de qualquer gravação
   const handleOpenQuickEntry = () => {
-    if (!isAuthenticated()) {
-      showToast('Autentique-se com login e senha para lançar novos registros.');
-      setIsLoginOpen(true);
-      return;
-    }
-    if (!permissions.canLaunchRain) {
-      denyForRole('lançar chuvas');
-      return;
-    }
+    if (!requireAuth('Entre de novo para lançar chuvas.')) return;
+    if (!permissions.canLaunchRain) return denyForRole('lançar chuvas');
     setEditingRecord(null);
     setIsQuickEntryOpen(true);
   };
 
   const handleSaveRain = async (recordData) => {
-    if (!isAuthenticated()) {
-      setIsLoginOpen(true);
-      return;
-    }
-    if (!permissions.canLaunchRain) {
-      denyForRole('lançar chuvas');
-      return;
-    }
+    if (!isAuthenticated()) { setIsLoginOpen(true); throw new Error('Sua sessão terminou. Entre de novo e grave outra vez.'); }
+    if (!permissions.canLaunchRain) { denyForRole('lançar chuvas'); throw new Error(`Seu perfil (${permissions.roleLabel}) não permite lançar chuvas.`); }
     try {
       await saveRainRecord(recordData);
-      showToast(`Chuva de ${recordData.rain_mm} mm em ${recordData.date} gravada com sucesso!`);
-      await loadData(selectedSafra);
     } catch (err) {
-      if (err.message?.includes('autorizado') || err.message?.includes('Token')) {
-        setIsLoginOpen(true);
-      }
-      showToast('Erro ao salvar: ' + err.message);
+      if (/sess[aã]o|autorizado|token/i.test(err.message || '')) setIsLoginOpen(true);
+      throw err;
     }
+    toast(`${fmt1(recordData.rain_mm)} mm em ${formatDateBR(recordData.date)} gravados.`);
+    await loadData(selectedSafra);
   };
 
   const handleDeleteRain = async (record) => {
-    if (!isAuthenticated()) {
-      showToast('Autentique-se para excluir registros.');
-      setIsLoginOpen(true);
-      return;
-    }
-    if (!permissions.canDeleteRain) {
-      denyForRole('excluir registros');
-      return;
-    }
-    if (window.confirm(`Deseja excluir o registro de ${record.rain_mm} mm do dia ${record.date}?`)) {
-      try {
-        await deleteRainRecord(record);
-        showToast(`Registro de ${record.date} excluído.`);
-        await loadData(selectedSafra);
-      } catch (err) {
-        showToast('Erro ao excluir: ' + err.message);
-      }
+    if (!requireAuth('Entre de novo para excluir leituras.')) return;
+    if (!permissions.canDeleteRain) return denyForRole('excluir leituras');
+    const ok = await confirm({
+      title: 'Excluir esta leitura?',
+      message: `A leitura de ${fmt1(record.rain_mm)} mm em ${formatDateBR(record.date)} sai do diário e de todos os cálculos.`,
+      confirmLabel: 'Excluir leitura',
+      danger: true,
+      icon: Trash2
+    });
+    if (!ok) return;
+    try {
+      await deleteRainRecord(record);
+      toast(`Leitura de ${formatDateBR(record.date)} excluída.`);
+      await loadData(selectedSafra);
+    } catch (err) {
+      toast('Não foi possível excluir: ' + err.message, 'error');
     }
   };
 
   const handleEditRain = (record) => {
-    if (!isAuthenticated()) {
-      showToast('Autentique-se para editar registros.');
-      setIsLoginOpen(true);
-      return;
-    }
-    if (!permissions.canLaunchRain) {
-      denyForRole('editar registros');
-      return;
-    }
+    if (!requireAuth('Entre de novo para corrigir leituras.')) return;
+    if (!permissions.canLaunchRain) return denyForRole('corrigir leituras');
     setEditingRecord(record);
     setIsQuickEntryOpen(true);
   };
@@ -215,19 +171,20 @@ export default function App() {
   const handleLogout = () => {
     logoutUser();
     setCurrentUser(null);
-    showToast('Sessão encerrada com sucesso.');
+    setDashboardData(null);
+    setRecords([]);
+    toast('Você saiu do Pluviômetro.', 'info');
   };
 
   const availableSafras = dashboardData?.availableSafras || ['2022/2023', '2023/2024', '2024/2025', '2025/2026', '2026/2027'];
+  const lastRecord = useMemo(() => records[0] || null, [records]);
 
-  // Portão de Entrada: Se não autenticado, exibe a tela de login diretamente
   if (!currentUser) {
     return (
       <LoginScreen
         onLoginSuccess={(user) => {
           setCurrentUser(user);
-          showToast(`Bem-vindo, ${user.name || user.username}! Acesso liberado.`);
-          loadData();
+          toast(`Olá, ${(user.name || user.username || '').split(/[\s@]/)[0]}. Painel liberado.`);
         }}
         theme={theme}
         onToggleTheme={handleToggleTheme}
@@ -235,29 +192,27 @@ export default function App() {
     );
   }
 
+  // No celular, a barra inferior escolhe a vista; no computador tudo aparece
+  const show = (...tabs) => (tabs.includes(mobileTab) ? '' : 'hidden sm:block');
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 pb-20 sm:pb-12 flex flex-col transition-colors">
-      
-      {/* Toast Notification */}
-      {toastMsg && (
-        <div className="fixed top-20 right-4 z-50 bg-rain-600 text-white font-medium text-xs sm:text-sm px-4 py-2.5 rounded-xl shadow-xl shadow-rain-500/30 flex items-center gap-2 animate-bounce">
-          <span>🌧️ {toastMsg}</span>
+    <div className="min-h-screen bg-page text-ink flex flex-col pb-24 sm:pb-0">
+      {IS_TEST && (
+        <div className="no-print bg-oilema-petrol text-white text-[12px] leading-4 text-center px-4 py-1.5 font-semibold tracking-wide">
+          INSTÂNCIA DE TESTE<span className="hidden sm:inline"> · dados locais em .test-data, sem o Supabase real</span>
         </div>
       )}
 
-      {/* Header Fixo */}
       <Header
         availableSafras={availableSafras}
         selectedSafra={selectedSafra}
         onSelectSafra={handleSelectSafra}
-        isLocalMode={isLocalMode}
         onOpenQuickEntry={handleOpenQuickEntry}
         onOpenBackup={() => setIsBackupOpen(true)}
         onOpenNotifications={() => setIsNotificationsOpen(true)}
         onOpenUsers={() => setIsUsersOpen(true)}
         permissions={permissions}
         onOpenPdfReport={() => setIsPdfOpen(true)}
-        onOpenLogin={() => setIsLoginOpen(true)}
         onOpenChangePassword={() => setIsChangePasswordOpen(true)}
         currentUser={currentUser}
         onLogout={handleLogout}
@@ -267,43 +222,22 @@ export default function App() {
         isLoading={isLoading}
       />
 
-      {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-5">
-        
-        {/* 1. CABEÇALHO DE IDENTIFICAÇÃO (UBS Sementes Oilema • Placas - Barreiras) */}
-        <div className="bg-white dark:bg-slate-900 border-l-4 border-l-rain-500 dark:bg-gradient-to-r dark:from-slate-900 dark:via-slate-900/90 dark:to-rain-950/30 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xs dark:shadow-none flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors">
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-oilema-petrol/10 dark:bg-slate-800 text-oilema-petrol dark:text-slate-200 border border-oilema-petrol/20 dark:border-slate-700">
-                PROPRIEDADE AGRÍCOLA
-              </span>
-              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                Região Oeste da Bahia (Cerrado)
-              </span>
+      <main className="flex-1 max-w-content w-full mx-auto px-4 sm:px-6 lg:px-8 pt-3 sm:pt-6 pb-8 space-y-4 sm:space-y-5">
+        {loadError && !dashboardData && (
+          <div className="panel panel-pad flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-[rgba(220,38,38,.35)]">
+            <div>
+              <p className="font-bold text-ink-strong">Não foi possível carregar as leituras</p>
+              <p className="t-body-small text-ink-muted mt-0.5">{loadError}</p>
             </div>
-            <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white mt-1">
-              UBS Sementes Oilema • Placas - Barreiras
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Ciclo Pluviométrico Hidrológico: Início em <strong>Outubro</strong> até <strong>Setembro</strong> do ano seguinte.
-            </p>
-            <ForecastInsight mapAnchorId="mapa-chuva" />
+            <button type="button" className="btn btn-primary" onClick={() => loadData(selectedSafra)}>Tentar de novo</button>
           </div>
+        )}
 
-          <div className="flex items-center gap-2 sm:shrink-0">
-            <div className="w-full sm:w-auto bg-slate-100 dark:bg-slate-800/80 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700/60 flex sm:block items-center justify-between sm:text-right">
-              <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide font-semibold block">
-                Visualizando
-              </span>
-              <span className="text-sm sm:text-base font-extrabold text-rain-600 dark:text-rain-400">
-                Safra {selectedSafra}
-              </span>
-            </div>
-          </div>
+        <div className={show('dashboard')}>
+          <IdentityCard selectedSafra={selectedSafra} lastRecord={lastRecord} mapAnchorId="mapa-chuva" />
         </div>
 
-        {/* 2. DIÁRIO DE LANÇAMENTOS (Posicionado estrategicamente logo abaixo do cabeçalho de identificação) */}
-        <section className={mobileTab !== 'records' && mobileTab !== 'dashboard' ? 'hidden sm:block' : ''}>
+        <section aria-label="Diário de leituras" className={show('records', 'dashboard')}>
           <DailyRecordsList
             records={records}
             selectedSafra={selectedSafra}
@@ -314,8 +248,7 @@ export default function App() {
           />
         </section>
 
-        {/* 3. CARDS DE KPIS (Acumulado, Média Diária do Mês sem seleção manual, Recorde, Extremos) */}
-        <section className={mobileTab !== 'dashboard' ? 'hidden sm:block' : ''}>
+        <section aria-label="Indicadores" className={show('dashboard')}>
           <KpiCards
             currentSafraMetrics={dashboardData?.currentSafraMetrics}
             kpis={dashboardData?.kpis}
@@ -326,33 +259,34 @@ export default function App() {
           />
         </section>
 
-        {/* 4. GRÁFICOS: PROGRESSO E HISTÓRICO SOBREPOSTO */}
-        <section className={`grid grid-cols-1 lg:grid-cols-2 gap-5 ${mobileTab !== 'charts' && mobileTab !== 'dashboard' ? 'hidden sm:grid' : ''}`}>
-          {/* Gráfico 1: Progresso da Safra Selecionada */}
-          <ProgressionChart
-            progression={dashboardData?.currentSafraMetrics?.progression}
-            selectedSafra={selectedSafra}
-            isDark={chartsDark}
-            animate={!isCapturingPdf}
-          />
-
-          {/* Gráfico 2: Comparativo Histórico Sobreposto */}
-          <HistoricalComparisonChart
-            historicalProgression={dashboardData?.historicalProgression}
-            availableSafras={availableSafras}
-            currentSafra={selectedSafra}
-            isDark={chartsDark}
-            animate={!isCapturingPdf}
-          />
+        <section aria-label="Gráficos" className={`grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 ${mobileTab === 'charts' || mobileTab === 'dashboard' ? '' : 'hidden sm:grid'}`}>
+          {dashboardData ? (
+            <>
+              <ProgressionChart
+                progression={dashboardData?.currentSafraMetrics?.progression}
+                selectedSafra={selectedSafra}
+                historicalMonthAvg={dashboardData?.historicalMonthAvg || {}}
+                isDark={chartsDark}
+                animate={!isCapturingPdf}
+              />
+              <HistoricalComparisonChart
+                historicalProgression={dashboardData?.historicalProgression}
+                availableSafras={availableSafras}
+                currentSafra={selectedSafra}
+                isDark={chartsDark}
+                animate={!isCapturingPdf}
+              />
+            </>
+          ) : (
+            [0, 1].map(i => <div key={i} className="panel panel-pad h-[440px]" aria-hidden="true"><span className="skeleton block h-5 w-1/2" /><span className="skeleton block h-[340px] mt-6" /></div>)
+          )}
         </section>
 
-        {/* 4b. MAPA E PREVISÃO DE CHUVA (widget gratuito da Windy) */}
-        <section id="mapa-chuva" className={`scroll-mt-24 ${mobileTab !== 'charts' && mobileTab !== 'dashboard' ? 'hidden sm:block' : ''}`}>
+        <section id="mapa-chuva" aria-label="Mapa de chuva" className={`scroll-mt-24 ${show('charts', 'dashboard')}`}>
           <WindyMapCard />
         </section>
 
-        {/* 5. TABELA CONSOLIDADA LADO A LADO */}
-        <section className={mobileTab !== 'table' && mobileTab !== 'dashboard' ? 'hidden sm:block' : ''}>
+        <section aria-label="Tabela consolidada" className={show('table', 'dashboard')}>
           <ConsolidatedTable
             consolidatedMatrix={dashboardData?.consolidatedMatrix}
             availableSafras={availableSafras}
@@ -361,62 +295,27 @@ export default function App() {
             currentSafra={selectedSafra}
           />
         </section>
-
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200 dark:border-slate-800/80 py-4 text-center text-xs text-slate-500">
-        <p>Pluviômetro Web • UBS Sementes Oilema • Barreiras/BA • Hospedado no GitHub Pages • Banco Supabase</p>
+      <footer className="no-print border-t border-line">
+        <div className="max-w-content mx-auto px-4 sm:px-6 lg:px-8 py-5 flex flex-col sm:flex-row items-center justify-between gap-1.5 text-[12px] leading-4 text-ink-muted text-center">
+          <span>Pluviômetro · UBS Sementes Oilema, Placas · Barreiras/BA</span>
+          <span className="font-display font-semibold tracking-wide uppercase text-[12px]">Sementes para o novo campo</span>
+        </div>
       </footer>
 
-      {/* Modal de Entrada Diária Ágil */}
       <QuickEntryModal
         isOpen={isQuickEntryOpen}
         onClose={() => { setIsQuickEntryOpen(false); setEditingRecord(null); }}
         onSave={handleSaveRain}
-        initialDate={editingRecord?.date || null}
+        editingRecord={editingRecord}
+        records={records}
       />
-
-      {/* Modal de Backup e Restauração */}
-      <BackupModal
-        isOpen={isBackupOpen}
-        onClose={() => setIsBackupOpen(false)}
-        onDataChanged={() => loadData(selectedSafra)}
-        isLocalMode={isLocalMode}
-        canImportData={permissions.canImportData}
-      />
-
-      {/* Modal de Avisos por E-mail */}
-      <NotificationsModal
-        isOpen={isNotificationsOpen && permissions.canConfigureAlerts}
-        onClose={() => setIsNotificationsOpen(false)}
-      />
-
-      {/* Modal de Login Seguro */}
-      <LoginModal
-        isOpen={isLoginOpen}
-        onClose={() => setIsLoginOpen(false)}
-        onLoginSuccess={(user) => {
-          setCurrentUser(user);
-          showToast(`Bem-vindo, ${user.name || user.username}! Acesso liberado.`);
-        }}
-      />
-
-      {/* Modal de Alteração de Senha */}
-      {/* Modal de Usuários (somente administradores) */}
-      <UsersModal
-        isOpen={isUsersOpen && permissions.canManageUsers}
-        onClose={() => setIsUsersOpen(false)}
-        currentUser={currentUser}
-      />
-
-      <ChangePasswordModal
-        isOpen={isChangePasswordOpen && permissions.canChangePassword}
-        onClose={() => setIsChangePasswordOpen(false)}
-        onSuccess={() => showToast('Senha de acesso alterada com sucesso!')}
-      />
-
-      {/* Modal de Resumo em PDF */}
+      <BackupModal isOpen={isBackupOpen} onClose={() => setIsBackupOpen(false)} onDataChanged={() => loadData(selectedSafra)} canImportData={permissions.canImportData} />
+      <NotificationsModal isOpen={isNotificationsOpen && permissions.canConfigureAlerts} onClose={() => setIsNotificationsOpen(false)} />
+      <LoginModal isOpen={isLoginOpen} onClose={() => setIsLoginOpen(false)} onLoginSuccess={(user) => { setCurrentUser(user); toast('Sessão renovada.'); }} />
+      <UsersModal isOpen={isUsersOpen && permissions.canManageUsers} onClose={() => setIsUsersOpen(false)} currentUser={currentUser} />
+      <ChangePasswordModal isOpen={isChangePasswordOpen && permissions.canChangePassword} onClose={() => setIsChangePasswordOpen(false)} onSuccess={() => toast('Senha alterada. Use a nova no próximo acesso.')} />
       <PdfReportModal
         isOpen={isPdfOpen}
         onClose={() => setIsPdfOpen(false)}
@@ -429,14 +328,12 @@ export default function App() {
         historicalMonthAvg={dashboardData?.historicalMonthAvg || {}}
       />
 
-      {/* Barra de Navegação Inferior Mobile */}
       <MobileBottomNav
         activeTab={mobileTab}
-        onSelectTab={setMobileTab}
+        onSelectTab={(t) => { setMobileTab(t); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
         onOpenQuickEntry={handleOpenQuickEntry}
         canLaunchRain={permissions.canLaunchRain}
       />
-
     </div>
   );
 }

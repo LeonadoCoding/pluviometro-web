@@ -1,211 +1,117 @@
-import React, { useState } from 'react';
-import {
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Legend,
-  CartesianGrid
-} from 'recharts';
-import { GitCompare } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { GitCompareArrows } from 'lucide-react';
+import { PanelHeader, Segmented } from './ui/primitives';
+import { chartPalette, axisTick, fmtMm, fmtAxis, TooltipBox, useNarrow, monthTick } from './charts/chartTheme';
 
-// Cores derivadas da paleta Oilema
-const SAFRA_COLORS = {
-  '2022/2023': '#D97E4A', // Argila
-  '2023/2024': '#6F9AA6', // Petróleo claro
-  '2024/2025': '#7A9A5B', // Verde campo
-  '2025/2026': '#385059', // Petróleo
-  '2026/2027': '#F28322'  // Laranja Oilema (Safra Atual)
-};
+const METRICS = [
+  { value: 'cum', label: 'Acumulado' },
+  { value: 'monthly', label: 'Mensal' }
+];
 
-// Petróleo escuro some no fundo escuro: usa um tom mais claro nesse tema
-const getSafraColor = (safra, isDark) => {
-  const color = SAFRA_COLORS[safra] || '#8DA0A7';
-  return isDark && color === '#385059' ? '#A3B9C0' : color;
-};
+// Safra selecionada sempre em laranja (chart-1); as demais seguem chart-2..5 da mais recente para a mais antiga
+function colorFor(safra, currentSafra, ordered, pal) {
+  if (safra === currentSafra) return pal.c1;
+  const others = ordered.filter(s => s !== currentSafra).reverse();
+  const list = [pal.c2, pal.c3, pal.c4, pal.c5];
+  return list[others.indexOf(safra) % list.length] || pal.axis;
+}
 
-export default function HistoricalComparisonChart({
-  historicalProgression,
-  availableSafras,
-  currentSafra,
-  isDark = true,
-  animate = true
-}) {
-  const [metricType, setMetricType] = useState('cum'); // 'cum' ou 'monthly'
-  const [activeSafras, setActiveSafras] = useState(
-    availableSafras.reduce((acc, s) => ({ ...acc, [s]: true }), {})
-  );
+export default function HistoricalComparisonChart({ historicalProgression, availableSafras, currentSafra, isDark = true, animate = true }) {
+  const [metricType, setMetricType] = useState('cum');
+  const [hidden, setHidden] = useState({});
+  const pal = chartPalette(isDark);
+  const narrow = useNarrow();
+
+  // A safra selecionada no topo nunca fica escondida
+  useEffect(() => { setHidden(h => ({ ...h, [currentSafra]: false })); }, [currentSafra]);
 
   if (!historicalProgression || historicalProgression.length === 0) return null;
 
-  const toggleSafra = (safra) => {
-    setActiveSafras(prev => ({ ...prev, [safra]: !prev[safra] }));
+  const TooltipContent = ({ active, payload, label }) => {
+    if (!active || !payload?.length) return null;
+    const rows = [...payload].filter(e => e.value != null).sort((a, b) => b.value - a.value);
+    return (
+      <TooltipBox title={`Mês: ${label}`} aside={metricType === 'cum' ? 'acumulado até o mês' : 'chuva no mês'}>
+        {rows.map((e) => {
+          const safra = e.dataKey.replace(/_(cum|monthly)$/, '');
+          const isCur = safra === currentSafra;
+          return (
+            <div key={e.dataKey} className={`flex items-center justify-between gap-4 ${isCur ? 'rounded-md -mx-1.5 px-1.5 py-0.5 bg-orange-50 dark:bg-orange-500/10' : ''}`}>
+              <span className="flex items-center gap-2 text-ink">
+                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: e.color }} />
+                <span className="num">{safra}</span>
+                {isCur && <span className="text-[11px] font-bold text-accent-text">ATUAL</span>}
+              </span>
+              <span className="num font-semibold text-ink-strong">{fmtMm(e.value)}</span>
+            </div>
+          );
+        })}
+      </TooltipBox>
+    );
   };
-
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-      const sortedPayload = [...payload].filter(e => e.value != null).sort((a, b) => (b.value || 0) - (a.value || 0));
-      return (
-        <div className="bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-700/80 rounded-xl p-3 shadow-2xl backdrop-blur-md text-xs space-y-1.5 min-w-[220px]">
-          <div className="font-bold text-sm text-slate-900 dark:text-white flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-1.5 mb-1.5">
-            <span>Mês: {label}</span>
-            <span className="text-slate-500 dark:text-slate-400 font-normal">
-              {metricType === 'cum' ? 'Acumulado até o mês' : 'Precipitação no mês'}
-            </span>
-          </div>
-
-          <div className="space-y-1">
-            {sortedPayload.map((entry) => {
-              const safraName = entry.dataKey.replace('_cum', '').replace('_monthly', '');
-              const isCurrent = safraName === currentSafra;
-              return (
-                <div key={entry.dataKey} className={`flex justify-between items-center ${isCurrent ? 'bg-rain-50 dark:bg-rain-500/10 px-1.5 py-0.5 rounded font-semibold' : ''}`}>
-                  <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
-                    <span
-                      className="w-2.5 h-2.5 rounded-full inline-block"
-                      style={{ backgroundColor: entry.color }}
-                    ></span>
-                    Safra {safraName} {isCurrent && <span className="text-[10px] text-rain-600 dark:text-rain-400">(Atual)</span>}:
-                  </span>
-                  <span className="font-bold text-slate-900 dark:text-white font-mono">
-                    {entry.value != null ? `${Number(entry.value).toLocaleString('pt-BR')} mm` : '—'}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
-
-  const gridColor = isDark ? '#273B43' : '#DCE3E5';
-  const axisColor = isDark ? '#8DA0A7' : '#627880';
 
   return (
-    <div id="chart-historical-card" className="glass-panel rounded-2xl p-4 sm:p-6 relative transition-colors flex flex-col">
-      <div className="flex flex-col sm:flex-row lg:flex-col sm:items-center lg:items-start justify-between gap-3 mb-4">
-        <div>
-          <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <GitCompare className="w-5 h-5 text-sky-600 dark:text-sky-400" />
-            Comparativo Histórico Sobreposto
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Sobreposição de todas as safras na mesma linha do tempo (Outubro a Setembro) • valores em mm
-          </p>
-        </div>
+    <div id="chart-historical-card" className="panel panel-pad flex flex-col enter" style={{ '--i': 6 }}>
+      <PanelHeader
+        icon={GitCompareArrows}
+        title="Safras comparadas"
+        subtitle="Todas as safras na mesma linha do tempo, de outubro a setembro · valores em mm"
+        className="sm:flex-row lg:flex-col 2xl:flex-row"
+        actions={<div data-html2canvas-ignore="true"><Segmented label="Medida" options={METRICS} value={metricType} onChange={setMetricType} /></div>}
+      />
 
-        {/* Toggle Curva Acumulada vs Precipitação Mensal */}
-        <div data-html2canvas-ignore="true" className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200 dark:border-slate-700/60 self-start sm:self-auto lg:self-start shrink-0">
-          <button
-            onClick={() => setMetricType('cum')}
-            className={`px-2.5 py-1 text-xs font-semibold rounded-lg whitespace-nowrap transition ${
-              metricType === 'cum'
-                ? 'bg-sky-500 text-white shadow-sm'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            Curva Acumulada
-          </button>
-          <button
-            onClick={() => setMetricType('monthly')}
-            className={`px-2.5 py-1 text-xs font-semibold rounded-lg whitespace-nowrap transition ${
-              metricType === 'monthly'
-                ? 'bg-sky-500 text-white shadow-sm'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            Volume Mensal
-          </button>
-        </div>
-      </div>
-
-      {/* Seletor rápido de Safras ativas */}
-      <div data-html2canvas-ignore="true" className="flex flex-wrap items-center gap-1.5 mb-3 pt-1">
-        <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mr-1">Exibir:</span>
+      <div className="flex flex-wrap items-center gap-1.5 mb-3" role="group" aria-label="Safras exibidas">
         {availableSafras.map((s) => {
-          const isActive = activeSafras[s] !== false;
-          const color = getSafraColor(s, isDark);
+          const on = !hidden[s];
+          const color = colorFor(s, currentSafra, availableSafras, pal);
           return (
             <button
               key={s}
-              onClick={() => toggleSafra(s)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition ${
-                isActive
-                  ? 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white shadow-xs'
-                  : 'bg-slate-100 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-400 opacity-60'
-              }`}
+              type="button"
+              aria-pressed={on}
+              disabled={s === currentSafra}
+              onClick={() => setHidden(h => ({ ...h, [s]: !h[s] }))}
+              className={`chip h-7 px-2.5 transition-[opacity,border-color,background-color] duration-200 disabled:cursor-default ${on ? 'bg-surface border-line text-ink-strong hover:border-petrol-400' : 'opacity-50 line-through decoration-ink-muted'}`}
             >
-              <span
-                className="w-2 h-2 rounded-full inline-block"
-                style={{ backgroundColor: color }}
-              ></span>
-              Safra {s}
-              {s === currentSafra && <span className="text-[10px] text-rain-600 dark:text-rain-400 font-bold">*</span>}
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
+              <span className="num">{s}</span>
             </button>
           );
         })}
       </div>
 
-      {/* Gráfico Recharts */}
-      <div className="w-full h-72 sm:h-80 -ml-2 sm:ml-0 mt-auto">
+      <div className="w-full h-[290px] sm:h-[300px] -ml-1.5 mt-auto">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={historicalProgression} margin={{ top: 15, right: 15, left: -10, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
-            <XAxis
-              dataKey="monthCode"
-              stroke={axisColor}
-              fontSize={11}
-              tickLine={false}
-              axisLine={{ stroke: axisColor }}
-            />
-            <YAxis
-              stroke={axisColor}
-              fontSize={11}
-              tickLine={false}
-              axisLine={false}
-            />
-            <Tooltip content={<CustomTooltip />} />
-            <Legend
-              wrapperStyle={{ paddingTop: 10, fontSize: 12 }}
-              formatter={(value) => {
-                const s = value.replace('Safra ', '');
-                return (
-                  <span className="text-slate-600 dark:text-slate-300 text-xs font-medium">
-                    {value} {s === currentSafra ? '(Atual)' : ''}
-                  </span>
-                );
-              }}
-            />
-
+          <LineChart data={historicalProgression} margin={{ top: 8, right: 12, left: -6, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={pal.grid} vertical={false} />
+            <XAxis dataKey="monthCode" tick={axisTick(pal.axis)} tickLine={false} axisLine={{ stroke: pal.grid }} interval={0} tickMargin={8} tickFormatter={monthTick(narrow)} />
+            <YAxis tick={axisTick(pal.axis)} tickLine={false} axisLine={false} tickFormatter={fmtAxis} width={narrow ? 40 : 50} />
+            <Tooltip content={<TooltipContent />} cursor={{ stroke: pal.grid, strokeWidth: 1.5 }} />
             {availableSafras.map((s) => {
-              if (activeSafras[s] === false) return null;
-              const isCurrent = s === currentSafra;
-              const color = getSafraColor(s, isDark);
-              const key = `${s}_${metricType}`;
-
+              if (hidden[s]) return null;
+              const isCur = s === currentSafra;
+              const color = colorFor(s, currentSafra, availableSafras, pal);
               return (
                 <Line
                   key={s}
                   type="monotone"
-                  dataKey={key}
+                  dataKey={`${s}_${metricType}`}
                   name={`Safra ${s}`}
                   stroke={color}
-                  strokeWidth={isCurrent ? 3.5 : 2}
-                  dot={isCurrent ? { r: 4, fill: color, stroke: isDark ? '#1A2B31' : '#FCFCFC', strokeWidth: 2 } : { r: 2 }}
+                  strokeWidth={isCur ? 3.5 : 2}
+                  strokeOpacity={isCur ? 1 : 0.85}
+                  dot={isCur ? { r: 3.5, fill: color, stroke: pal.surface, strokeWidth: 2 } : false}
+                  activeDot={{ r: isCur ? 6 : 4.5, stroke: pal.surface, strokeWidth: 2 }}
                   connectNulls={false}
                   isAnimationActive={animate}
-                  activeDot={{ r: 6 }}
+                  animationDuration={900}
                 />
               );
             })}
           </LineChart>
         </ResponsiveContainer>
       </div>
-
     </div>
   );
 }

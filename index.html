@@ -1,20 +1,34 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="dark" class="dark">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Pluviômetro · Sementes Oilema</title>
+    <meta name="description" content="Registro diário de chuva da UBS Placas, em Barreiras/BA: acumulado da safra, médias, comparativo entre safras, previsão e boletim em PDF." />
     <link rel="icon" type="image/png" href="/logo-oilema-simbolo.png" />
     <link rel="apple-touch-icon" href="/logo-oilema-simbolo.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#385059" />
+    <meta name="theme-color" content="#111e23" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <title>Pluviômetro Oilema - Registro e Análise Pluviométrica</title>
-    <!-- Inter Font -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="preload" href="/fonts/AmsiPro-Regular.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/AmsiPro-Bold.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/AmsiProCond-Bold.woff2" as="font" type="font/woff2" crossorigin />
+    <script>
+      // Aplica o tema salvo antes da primeira pintura (sem piscar claro/escuro)
+      (function () {
+        var t;
+        try { t = localStorage.getItem('pluviometro_theme_preference'); } catch (e) {}
+        if (t !== 'light' && t !== 'dark') t = window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        var r = document.documentElement;
+        r.dataset.theme = t;
+        r.classList.remove('light', 'dark');
+        r.classList.add(t);
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (m) m.content = t === 'dark' ? '#111e23' : '#f5f7f7';
+      })();
+    </script>
   </head>
-  <body style="background:#111E23;color:#ECF0F1;min-height:100vh;font-family:'Plus Jakarta Sans',sans-serif;">
+  <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

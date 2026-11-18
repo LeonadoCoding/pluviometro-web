@@ -1,9 +1,10 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import { ToastProvider, ConfirmProvider } from './components/ui/feedback';
 import './index.css';
 
-// ─── Global Error Boundary ─────────────────────────────────────────────────
+// Falha inesperada: tela da marca com um botão para recarregar
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -16,71 +17,31 @@ class ErrorBoundary extends React.Component {
     console.error('[ErrorBoundary]', error, info);
   }
   render() {
-    if (this.state.hasError) {
-      return (
-        <div style={{
-          minHeight: '100vh',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: '#111E23',
-          color: '#ECF0F1',
-          fontFamily: "'Plus Jakarta Sans', sans-serif",
-          padding: '2rem',
-          textAlign: 'center',
-          gap: '1rem'
-        }}>
-          <div style={{ fontSize: '3rem' }}>🌧️</div>
-          <h1 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#F28322' }}>
-            Pluviômetro Oilema
-          </h1>
-          <p style={{ color: '#8DA0A7', maxWidth: 400 }}>
-            Ocorreu um erro inesperado ao iniciar o sistema. Tente recarregar a página.
-          </p>
-          <button
-            onClick={() => window.location.reload()}
-            style={{
-              marginTop: '1rem',
-              padding: '0.75rem 2rem',
-              background: '#F28322',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '0.75rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-              fontSize: '0.875rem'
-            }}
-          >
-            Recarregar Página
-          </button>
+    if (!this.state.hasError) return this.props.children;
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-page">
+        <div className="panel max-w-md w-full p-8 text-center">
+          <img src={`${import.meta.env.BASE_URL}logo-oilema-simbolo.png`} alt="" className="w-12 h-12 mx-auto" />
+          <h1 className="t-brand-title uppercase text-ink-strong mt-4">Pluviômetro</h1>
+          <p className="text-[15px] leading-[22px] text-ink-muted mt-2">Algo deu errado ao abrir o painel. Recarregue a página; as leituras gravadas não se perdem.</p>
+          <button type="button" onClick={() => window.location.reload()} className="btn btn-primary btn-lg mt-6">Recarregar a página</button>
           {import.meta.env.DEV && (
-            <pre style={{
-              marginTop: '1rem',
-              background: '#1A2B31',
-              padding: '1rem',
-              borderRadius: '0.5rem',
-              fontSize: '0.7rem',
-              color: '#f87171',
-              maxWidth: '90vw',
-              overflowX: 'auto',
-              textAlign: 'left'
-            }}>
-              {this.state.error?.toString()}
-            </pre>
+            <pre className="mt-6 text-left text-[11px] leading-4 text-danger bg-surface-sunken border border-line rounded-lg p-3 overflow-x-auto">{String(this.state.error)}</pre>
           )}
         </div>
-      );
-    }
-    return this.props.children;
+      </div>
+    );
   }
 }
-// ───────────────────────────────────────────────────────────────────────────
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ErrorBoundary>
-      <App />
+      <ToastProvider>
+        <ConfirmProvider>
+          <App />
+        </ConfirmProvider>
+      </ToastProvider>
     </ErrorBoundary>
   </React.StrictMode>
 );

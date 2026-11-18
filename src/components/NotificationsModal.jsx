@@ -1,35 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { X, Bell, Plus, Trash2, Send, Check, AlertTriangle, Save, Mail } from 'lucide-react';
-import {
-  fetchNotificationSettings,
-  saveNotificationSettings,
-  fetchNotificationLog,
-  sendTestEmail,
-  isValidEmail
-} from '../services/notifications';
+import { Bell, Plus, X, Send, Save, Mail } from 'lucide-react';
+import { fetchNotificationSettings, saveNotificationSettings, fetchNotificationLog, sendTestEmail, isValidEmail } from '../services/notifications';
 import { formatDateBR } from '../utils/dates';
+import Modal from './ui/Modal';
+import { Notice, Spinner, Toggle } from './ui/primitives';
 
-const inputClass = 'w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rain-500 transition';
-const sectionClass = 'bg-slate-50 dark:bg-slate-950/60 rounded-2xl p-4 border border-slate-200 dark:border-slate-800';
-const sectionTitleClass = 'text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5';
-
-function Toggle({ checked, onChange, label, description }) {
+function Section({ title, children, aside }) {
   return (
-    <label className="flex items-start justify-between gap-3 cursor-pointer">
-      <span>
-        <span className="text-sm font-semibold text-slate-800 dark:text-slate-100 block">{label}</span>
-        {description && <span className="text-xs text-slate-500 dark:text-slate-400">{description}</span>}
-      </span>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        onClick={() => onChange(!checked)}
-        className={`relative mt-0.5 w-10 h-6 rounded-full flex-shrink-0 transition ${checked ? 'bg-rain-500' : 'bg-slate-300 dark:bg-slate-700'}`}
-      >
-        <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-4' : ''}`}></span>
-      </button>
-    </label>
+    <section className="well p-4">
+      {title && <div className="flex items-center justify-between gap-2 mb-3"><h3 className="lbl text-ink-strong">{title}</h3>{aside}</div>}
+      {children}
+    </section>
   );
 }
 
@@ -37,7 +18,7 @@ export default function NotificationsModal({ isOpen, onClose }) {
   const [settings, setSettings] = useState(null);
   const [log, setLog] = useState([]);
   const [newEmail, setNewEmail] = useState('');
-  const [statusMsg, setStatusMsg] = useState(null);
+  const [status, setStatus] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
@@ -45,48 +26,37 @@ export default function NotificationsModal({ isOpen, onClose }) {
 
   useEffect(() => {
     if (!isOpen) return;
-    setStatusMsg(null);
+    setStatus(null);
     setIsDirty(false);
     setIsLoading(true);
     Promise.all([fetchNotificationSettings(), fetchNotificationLog().catch(() => [])])
       .then(([s, l]) => { setSettings(s); setLog(l); })
-      .catch(err => setStatusMsg({ type: 'error', text: err.message }))
+      .catch(err => setStatus({ type: 'error', text: err.message }))
       .finally(() => setIsLoading(false));
   }, [isOpen]);
 
-  if (!isOpen) return null;
-
-  const update = (patch) => {
-    setSettings(prev => ({ ...prev, ...patch }));
-    setIsDirty(true);
-  };
+  const update = (patch) => { setSettings(prev => ({ ...prev, ...patch })); setIsDirty(true); };
 
   const handleAddEmail = (e) => {
     e.preventDefault();
     const email = newEmail.trim().toLowerCase();
-    if (!isValidEmail(email)) {
-      setStatusMsg({ type: 'error', text: 'Digite um e-mail válido.' });
-      return;
-    }
-    if (settings.recipients.includes(email)) {
-      setStatusMsg({ type: 'error', text: 'Este e-mail já está na lista.' });
-      return;
-    }
+    if (!isValidEmail(email)) return setStatus({ type: 'error', text: 'Digite um e-mail válido.' });
+    if (settings.recipients.includes(email)) return setStatus({ type: 'error', text: 'Este e-mail já está na lista.' });
     update({ recipients: [...settings.recipients, email] });
     setNewEmail('');
-    setStatusMsg(null);
+    setStatus(null);
   };
 
   const handleSave = async () => {
     setIsSaving(true);
-    setStatusMsg(null);
+    setStatus(null);
     try {
       const saved = await saveNotificationSettings(settings);
       if (saved) setSettings(saved);
       setIsDirty(false);
-      setStatusMsg({ type: 'success', text: 'Configurações de aviso salvas.' });
+      setStatus({ type: 'ok', text: 'Configurações de aviso gravadas.' });
     } catch (err) {
-      setStatusMsg({ type: 'error', text: 'Erro ao salvar: ' + err.message });
+      setStatus({ type: 'error', text: 'Não foi possível gravar: ' + err.message });
     } finally {
       setIsSaving(false);
     }
@@ -94,12 +64,12 @@ export default function NotificationsModal({ isOpen, onClose }) {
 
   const handleTest = async () => {
     setIsTesting(true);
-    setStatusMsg(null);
+    setStatus(null);
     try {
       const res = await sendTestEmail();
-      setStatusMsg({ type: 'success', text: `E-mail de teste enviado para ${res.sent} destinatário(s).` });
+      setStatus({ type: 'ok', text: `E-mail de teste enviado para ${res.sent} ${res.sent === 1 ? 'destinatário' : 'destinatários'}.` });
     } catch (err) {
-      setStatusMsg({ type: 'error', text: err.message });
+      setStatus({ type: 'error', text: err.message });
     } finally {
       setIsTesting(false);
       fetchNotificationLog().then(setLog).catch(() => {});
@@ -107,177 +77,98 @@ export default function NotificationsModal({ isOpen, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm transition-opacity">
-      <div className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto">
-
-        {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-rain-500/10 dark:bg-rain-500/20 text-rain-600 dark:text-rain-400 flex items-center justify-center">
-              <Bell className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">Avisos de Chuva por E-mail</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Enviados pelo Brevo a cada novo registro</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg transition">
-            <X className="w-5 h-5" />
+    <Modal
+      open={isOpen}
+      onClose={onClose}
+      icon={Bell}
+      title="Avisos de chuva por e-mail"
+      subtitle="Enviados pelo Brevo a cada leitura nova"
+      footer={settings && (
+        <>
+          <button type="button" onClick={handleTest} disabled={isTesting || isDirty || !settings.recipients.length} title={isDirty ? 'Grave antes de testar' : 'Envia um e-mail de teste aos destinatários gravados'} className="btn btn-secondary btn-lg">
+            {isTesting ? <Spinner /> : <Send />} Enviar teste
           </button>
-        </div>
-
-        {statusMsg && (
-          <div className={`mt-3 p-3 rounded-xl text-xs flex items-center gap-2 ${
-            statusMsg.type === 'success'
-              ? 'bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
-              : 'bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
-          }`}>
-            {statusMsg.type === 'success' ? <Check className="w-4 h-4 flex-shrink-0" /> : <AlertTriangle className="w-4 h-4 flex-shrink-0" />}
-            <span>{statusMsg.text}</span>
+          <button type="button" onClick={handleSave} disabled={isSaving || !isDirty} className="btn btn-primary btn-lg sm:min-w-[160px]">
+            {isSaving ? <><Spinner /> Gravando…</> : <><Save /> Gravar</>}
+          </button>
+        </>
+      )}
+    >
+      <div className="space-y-3">
+        {status && <Notice type={status.type}>{status.text}</Notice>}
+        {isLoading && (
+          <div className="space-y-3" aria-hidden="true">
+            {[0, 1, 2].map(i => <div key={i} className="skeleton h-20 rounded-lg" />)}
           </div>
         )}
 
-        {isLoading && <p className="mt-5 text-xs text-slate-500 dark:text-slate-400">Carregando configurações...</p>}
-
         {settings && (
-          <div className="mt-5 space-y-4">
+          <>
+            <Section>
+              <Toggle checked={settings.enabled} onChange={(v) => update({ enabled: v })} label="Enviar avisos de chuva" description="Um e-mail sai assim que uma leitura é gravada." />
+            </Section>
 
-            {/* Liga/desliga */}
-            <div className={sectionClass}>
-              <Toggle
-                checked={settings.enabled}
-                onChange={(v) => update({ enabled: v })}
-                label="Enviar avisos de chuva"
-                description="Um e-mail é enviado assim que uma leitura é registrada."
-              />
-            </div>
-
-            {/* Destinatários */}
-            <div className={sectionClass}>
-              <h4 className={sectionTitleClass}>Destinatários ({settings.recipients.length})</h4>
-              <form onSubmit={handleAddEmail} className="flex gap-2 mt-2">
-                <input
-                  type="email"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  placeholder="nome@empresa.com.br"
-                  className={inputClass}
-                />
-                <button type="submit" className="px-3 rounded-lg bg-rain-500 hover:bg-rain-600 text-white text-xs font-semibold flex items-center gap-1 transition flex-shrink-0">
-                  <Plus className="w-4 h-4" />
-                  Adicionar
-                </button>
+            <Section title={`Destinatários (${settings.recipients.length})`}>
+              <form onSubmit={handleAddEmail} className="flex gap-2">
+                <label htmlFor="notify-email" className="sr-only">Novo destinatário</label>
+                <input id="notify-email" type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="nome@sementesoilema.com.br" className="input input-sm" />
+                <button type="submit" className="btn btn-petrol flex-shrink-0"><Plus /> Incluir</button>
               </form>
               {settings.recipients.length === 0 ? (
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-3">Nenhum destinatário cadastrado.</p>
+                <p className="text-[13px] text-ink-muted mt-3">Ninguém recebe avisos ainda.</p>
               ) : (
-                <ul className="mt-3 space-y-1.5">
+                <ul className="mt-3 flex flex-wrap gap-1.5">
                   {settings.recipients.map(email => (
-                    <li key={email} className="flex items-center justify-between gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2">
-                      <span className="text-sm text-slate-800 dark:text-slate-100 flex items-center gap-2 min-w-0">
-                        <Mail className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                        <span className="truncate">{email}</span>
-                      </span>
-                      <button
-                        onClick={() => update({ recipients: settings.recipients.filter(e => e !== email) })}
-                        title="Remover"
-                        className="p-1 text-slate-400 hover:text-red-500 transition"
-                      >
-                        <Trash2 className="w-4 h-4" />
+                    <li key={email} className="inline-flex items-center gap-1.5 h-8 pl-3 pr-1 rounded-full border border-line bg-surface text-[13px] text-ink-strong [animation:drop-in_.2s_ease_both]">
+                      <Mail className="w-3.5 h-3.5 text-ink-muted" />
+                      <span className="max-w-[220px] truncate">{email}</span>
+                      <button type="button" onClick={() => update({ recipients: settings.recipients.filter(e => e !== email) })} className="w-6 h-6 rounded-full flex items-center justify-center text-ink-muted hover:bg-surface-control hover:text-danger transition-colors" aria-label={`Remover ${email}`}>
+                        <X className="w-3.5 h-3.5" />
                       </button>
                     </li>
                   ))}
                 </ul>
               )}
-            </div>
+            </Section>
 
-            {/* Regras */}
-            <div className={`${sectionClass} space-y-4`}>
-              <h4 className={sectionTitleClass}>Regras de envio</h4>
+            <Section title="Regras de envio">
               <div className="grid grid-cols-2 gap-3">
-                <label className="block">
-                  <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">Avisar a partir de (mm)</span>
-                  <input
-                    type="number" min="0" step="0.1" inputMode="decimal"
-                    value={settings.min_rain_mm}
-                    onChange={(e) => update({ min_rain_mm: e.target.value })}
-                    className={`${inputClass} mt-1`}
-                  />
-                </label>
-                <label className="block">
-                  <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">Leituras dos últimos (dias)</span>
-                  <input
-                    type="number" min="0" max="60" step="1" inputMode="numeric"
-                    value={settings.max_age_days}
-                    onChange={(e) => update({ max_age_days: e.target.value })}
-                    className={`${inputClass} mt-1`}
-                  />
-                </label>
+                <div>
+                  <label htmlFor="notify-min" className="field-label">Avisar a partir de (mm)</label>
+                  <input id="notify-min" type="number" min="0" step="0.1" inputMode="decimal" value={settings.min_rain_mm} onChange={(e) => update({ min_rain_mm: e.target.value })} className="input input-sm num" />
+                </div>
+                <div>
+                  <label htmlFor="notify-age" className="field-label">Leituras de até (dias)</label>
+                  <input id="notify-age" type="number" min="0" max="60" step="1" inputMode="numeric" value={settings.max_age_days} onChange={(e) => update({ max_age_days: e.target.value })} className="input input-sm num" />
+                </div>
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 -mt-2">
-                Leituras mais antigas que esse prazo não geram aviso, o que evita uma enxurrada de e-mails ao importar um backup.
-              </p>
-              <Toggle
-                checked={settings.notify_on_update}
-                onChange={(v) => update({ notify_on_update: v })}
-                label="Avisar também correções"
-                description="Envia um e-mail quando o volume de um registro existente for alterado."
-              />
-            </div>
+              <p className="hint">Leituras mais antigas que esse prazo não geram aviso, o que evita uma enxurrada de e-mails ao importar um backup.</p>
+              <div className="h-px bg-line my-4" />
+              <Toggle checked={settings.notify_on_update} onChange={(v) => update({ notify_on_update: v })} label="Avisar também correções" description="Envia um e-mail quando o volume de uma leitura existente muda." />
+            </Section>
 
-            {/* Ações */}
-            <div className="flex gap-2">
-              <button
-                onClick={handleSave}
-                disabled={isSaving || !isDirty}
-                className="flex-1 py-3 bg-gradient-to-r from-rain-500 to-oilema-flame hover:from-rain-600 hover:to-rain-600 text-white font-bold text-sm rounded-xl shadow-lg shadow-rain-500/25 flex items-center justify-center gap-2 transition disabled:opacity-50"
-              >
-                <Save className="w-4 h-4" />
-                {isSaving ? 'Salvando...' : 'Salvar'}
-              </button>
-              <button
-                onClick={handleTest}
-                disabled={isTesting || isDirty || settings.recipients.length === 0}
-                title={isDirty ? 'Salve antes de testar' : 'Enviar e-mail de teste aos destinatários salvos'}
-                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-sm rounded-xl flex items-center justify-center gap-2 border border-slate-200 dark:border-slate-700 transition disabled:opacity-50"
-              >
-                <Send className="w-4 h-4" />
-                {isTesting ? 'Enviando...' : 'Enviar teste'}
-              </button>
-            </div>
-
-            {/* Histórico */}
             {log.length > 0 && (
-              <div className={sectionClass}>
-                <h4 className={sectionTitleClass}>Últimos envios</h4>
-                <ul className="mt-2 divide-y divide-slate-200 dark:divide-slate-800">
+              <Section title="Últimos envios">
+                <ul className="divide-y divide-[color:var(--line)] -my-1">
                   {log.map(item => (
-                    <li key={item.id} className="py-2 flex items-center justify-between gap-2 text-xs">
-                      <span className="text-slate-700 dark:text-slate-200 min-w-0">
-                        <span className="font-semibold">
-                          {item.kind === 'test' ? 'Teste' : `${Number(item.rain_mm).toLocaleString('pt-BR')} mm em ${formatDateBR(item.record_date)}`}
-                        </span>
-                        <span className="text-slate-400 block truncate" title={item.error || ''}>
-                          {new Date(item.created_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
-                          {' • '}{item.recipients?.length || 0} destinatário(s)
-                          {item.error ? ` • ${item.error}` : ''}
+                    <li key={item.id} className="py-2.5 flex items-center justify-between gap-3">
+                      <span className="min-w-0">
+                        <b className="block text-[14px] leading-5 font-semibold text-ink-strong num">
+                          {item.kind === 'test' ? 'E-mail de teste' : `${Number(item.rain_mm).toLocaleString('pt-BR')} mm em ${formatDateBR(item.record_date)}`}
+                        </b>
+                        <span className="block text-[12px] leading-4 text-ink-muted truncate num" title={item.error || ''}>
+                          {new Date(item.created_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })} · {item.recipients?.length || 0} {item.recipients?.length === 1 ? 'destinatário' : 'destinatários'}{item.error ? ` · ${item.error}` : ''}
                         </span>
                       </span>
-                      <span className={`px-2 py-0.5 rounded-full font-bold whitespace-nowrap ${
-                        item.status === 'sent'
-                          ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
-                          : 'bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300'
-                      }`}>
-                        {item.status === 'sent' ? 'Enviado' : 'Falhou'}
-                      </span>
+                      <span className={`chip ${item.status === 'sent' ? 'text-success' : 'text-danger'}`}>{item.status === 'sent' ? 'Enviado' : 'Falhou'}</span>
                     </li>
                   ))}
                 </ul>
-              </div>
+              </Section>
             )}
-          </div>
+          </>
         )}
       </div>
-    </div>
+    </Modal>
   );
 }

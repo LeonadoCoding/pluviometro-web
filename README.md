@@ -116,3 +116,22 @@ Configure estas variáveis no ambiente de execução, nunca no repositório:
 - `DATA_DIR`: diretório persistente para o banco e o segredo JWT.
 
 O banco SQLite e o arquivo `jwt.secret` são dados de runtime e devem permanecer fora do Git.
+
+## Instância de teste (v2 · UI Oilema Base)
+
+Roda o painel inteiro no computador, sem tocar no Supabase real. Os dados ficam em `.test-data/db.json`, criados a partir de `src/data/seedData.json` e completados até ontem com leituras de exemplo.
+
+```bash
+npm run test:server   # Supabase simulado em http://127.0.0.1:54321
+npm run dev:test      # painel em http://127.0.0.1:5173/pluviometro-web/
+```
+
+Contas, todas com a senha `teste-oilema-2026`:
+
+| E-mail | Perfil |
+|---|---|
+| admin@teste.local | Administrador |
+| alimentador@teste.local | Alimentador |
+| visualizador@teste.local | Visualizador |
+
+Para recomeçar do zero, pare o servidor e apague a pasta `.test-data`. As capturas de tela saem com `node scripts/shots.mjs shots painel-light-1440 login-dark-390 modal-lancar-light-1440`.

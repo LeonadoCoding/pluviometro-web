@@ -1,65 +1,54 @@
 import React from 'react';
-import { LayoutDashboard, TrendingUp, Plus, GitCompare, ListFilter } from 'lucide-react';
+import { LayoutDashboard, NotebookPen, Plus, BarChart3, Table2 } from 'lucide-react';
 
-export default function MobileBottomNav({
-  activeTab,
-  onSelectTab,
-  onOpenQuickEntry,
-  canLaunchRain = true
-}) {
+const TABS = [
+  { id: 'dashboard', label: 'Painel', icon: LayoutDashboard },
+  { id: 'records', label: 'Diário', icon: NotebookPen },
+  { id: 'charts', label: 'Gráficos', icon: BarChart3 },
+  { id: 'table', label: 'Tabela', icon: Table2 }
+];
+
+function Tab({ tab, active, onSelect }) {
+  const Icon = tab.icon;
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 sm:hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 px-2 py-1.5 flex items-center justify-around safe-area-pb transition-colors shadow-lg">
-      
-      <button
-        onClick={() => onSelectTab('dashboard')}
-        className={`flex flex-col items-center justify-center w-14 py-1 rounded-lg transition ${
-          activeTab === 'dashboard' ? 'text-rain-600 dark:text-rain-400 font-bold' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
-        }`}
-      >
-        <LayoutDashboard className="w-5 h-5 mb-0.5" />
-        <span className="text-[10px]">Painel</span>
-      </button>
+    <button
+      type="button"
+      onClick={() => onSelect(tab.id)}
+      aria-current={active ? 'page' : undefined}
+      className={`relative flex flex-col items-center justify-center gap-1 flex-1 h-14 rounded-lg transition-colors ${active ? 'text-accent-text' : 'text-ink-muted hover:text-ink-strong'}`}
+    >
+      <span className={`absolute top-0 h-[3px] rounded-full bg-accent transition-all duration-300 ${active ? 'w-6 opacity-100' : 'w-0 opacity-0'}`} />
+      <Icon className="w-[22px] h-[22px]" strokeWidth={active ? 2.4 : 2} />
+      <span className={`text-[11px] leading-3 ${active ? 'font-bold' : 'font-medium'}`}>{tab.label}</span>
+    </button>
+  );
+}
 
-      <button
-        onClick={() => onSelectTab('records')}
-        className={`flex flex-col items-center justify-center w-14 py-1 rounded-lg transition ${
-          activeTab === 'records' ? 'text-rain-600 dark:text-rain-400 font-bold' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
-        }`}
-      >
-        <ListFilter className="w-5 h-5 mb-0.5" />
-        <span className="text-[10px]">Diário</span>
-      </button>
-
-      {/* Botão de Lançar Chuva em Destaque Central (admin e alimentador) */}
+// Barra inferior do celular: quatro vistas e o lançamento de chuva no centro
+export default function MobileBottomNav({ activeTab, onSelectTab, onOpenQuickEntry, canLaunchRain = true }) {
+  const left = TABS.slice(0, 2);
+  const right = TABS.slice(2);
+  return (
+    <nav
+      aria-label="Seções do painel"
+      className="no-print fixed bottom-0 inset-x-0 z-40 sm:hidden border-t border-line px-2 pt-1 pb-[max(6px,env(safe-area-inset-bottom))] flex items-end shadow-[0_-6px_20px_rgba(17,30,35,.08)]"
+      style={{ backgroundColor: 'color-mix(in srgb, var(--surface) 94%, transparent)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }}
+    >
+      {left.map(t => <Tab key={t.id} tab={t} active={activeTab === t.id} onSelect={onSelectTab} />)}
       {canLaunchRain && (
-        <button
-          onClick={onOpenQuickEntry}
-          className="-mt-5 w-12 h-12 rounded-full bg-gradient-to-tr from-oilema-flame to-rain-400 text-white flex items-center justify-center shadow-lg shadow-rain-500/40 active:scale-95 transition"
-        >
-          <Plus className="w-6 h-6 stroke-[3]" />
-        </button>
+        <div className="flex-1 flex justify-center">
+          <button
+            type="button"
+            onClick={onOpenQuickEntry}
+            aria-label="Lançar chuva"
+            className="-mt-6 w-14 h-14 rounded-full text-white flex items-center justify-center shadow-accent ring-4 ring-[color:var(--surface)] active:scale-95 transition-transform"
+            style={{ background: 'linear-gradient(135deg, var(--oilema-orange), var(--oilema-flame))' }}
+          >
+            <Plus className="w-7 h-7" strokeWidth={2.75} />
+          </button>
+        </div>
       )}
-
-      <button
-        onClick={() => onSelectTab('charts')}
-        className={`flex flex-col items-center justify-center w-14 py-1 rounded-lg transition ${
-          activeTab === 'charts' ? 'text-rain-600 dark:text-rain-400 font-bold' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
-        }`}
-      >
-        <TrendingUp className="w-5 h-5 mb-0.5" />
-        <span className="text-[10px]">Gráficos</span>
-      </button>
-
-      <button
-        onClick={() => onSelectTab('table')}
-        className={`flex flex-col items-center justify-center w-14 py-1 rounded-lg transition ${
-          activeTab === 'table' ? 'text-rain-600 dark:text-rain-400 font-bold' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
-        }`}
-      >
-        <GitCompare className="w-5 h-5 mb-0.5" />
-        <span className="text-[10px]">Tabela</span>
-      </button>
-
-    </div>
+      {right.map(t => <Tab key={t.id} tab={t} active={activeTab === t.id} onSelect={onSelectTab} />)}
+    </nav>
   );
 }

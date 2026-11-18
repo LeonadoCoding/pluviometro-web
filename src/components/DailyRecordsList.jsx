@@ -1,173 +1,165 @@
-import React, { useState, useMemo } from 'react';
-import { ListFilter, Search, Calendar, Trash2, Edit3, Droplet, ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
-import { formatDateBR } from '../utils/dates';
+import React, { useState, useMemo, useEffect } from 'react';
+import { NotebookPen, Search, Trash2, PencilLine, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { PanelHeader } from './ui/primitives';
 
-export default function DailyRecordsList({
-  records,
-  selectedSafra,
-  onEditRecord,
-  onDeleteRecord,
-  canEdit = true,
-  canDelete = true
-}) {
+const WEEKDAYS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+const PER_PAGE = 8;
+
+const fmt1 = (n) => (Number(n) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+// Intensidade da leitura: sempre com texto, nunca só a cor
+function intensity(mm) {
+  if (mm <= 0) return { label: 'Sem chuva', bar: 'bg-line', text: 'text-ink-muted' };
+  if (mm < 10) return { label: 'Fraca', bar: 'bg-orange-300 dark:bg-orange-400/70', text: 'text-ink-muted' };
+  if (mm < 25) return { label: 'Moderada', bar: 'bg-accent', text: 'text-accent-text' };
+  if (mm < 50) return { label: 'Forte', bar: 'bg-orange-600', text: 'text-accent-text' };
+  return { label: 'Muito forte', bar: 'bg-warning', text: 'text-warning' };
+}
+
+function RecordTile({ record, canEdit, canDelete, onEdit, onDelete, index }) {
+  const d = new Date(`${record.date}T12:00:00`);
+  const level = intensity(record.rain_mm);
+  const width = Math.min(100, (record.rain_mm / 60) * 100);
+  return (
+    <li
+      className="group relative rounded-lg border border-line bg-surface-sunken p-3.5 transition-[border-color,box-shadow,transform] duration-200 hover:border-[rgba(242,131,34,.45)] hover:shadow-card-hover hover:-translate-y-0.5 [animation:fade-up_.35s_cubic-bezier(.2,.8,.2,1)_both]"
+      style={{ animationDelay: `${index * 30}ms` }}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-11 h-12 rounded-md bg-surface border border-line flex flex-col items-center justify-center flex-shrink-0">
+            <span className="num font-display text-[19px] leading-5 font-bold text-ink-strong">{String(d.getDate()).padStart(2, '0')}</span>
+            <span className="text-[10px] leading-3 font-semibold uppercase tracking-wide text-ink-muted">{MONTHS[d.getMonth()]}</span>
+          </div>
+          <div className="min-w-0">
+            <p className="flex items-baseline gap-1">
+              <span className="num font-display text-[22px] leading-6 font-bold text-ink-strong">{fmt1(record.rain_mm)}</span>
+              <span className="text-[13px] font-bold text-accent-text">mm</span>
+            </p>
+            <p className="text-[12px] leading-4 text-ink-muted mt-0.5 truncate">
+              <span className="capitalize">{WEEKDAYS[d.getDay()]}</span> · <span className={`font-semibold ${level.text}`}>{level.label}</span>
+            </p>
+          </div>
+        </div>
+        {(canEdit || canDelete) && (
+          <div className="flex items-center -mr-1.5 -mt-1.5 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity">
+            {canEdit && (
+              <button type="button" onClick={() => onEdit(record)} className="btn btn-icon-sm" title="Editar leitura" aria-label={`Editar leitura de ${record.date.split('-').reverse().join('/')}`}>
+                <PencilLine />
+              </button>
+            )}
+            {canDelete && (
+              <button type="button" onClick={() => onDelete(record)} className="btn btn-icon-sm is-danger" title="Excluir leitura" aria-label={`Excluir leitura de ${record.date.split('-').reverse().join('/')}`}>
+                <Trash2 />
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+      <div className="mt-3 h-1 rounded-full bg-surface-control overflow-hidden">
+        <span className={`block h-full rounded-full ${level.bar}`} style={{ width: `${Math.max(record.rain_mm > 0 ? 4 : 0, width)}%` }} />
+      </div>
+      {record.notes && <p className="mt-2 text-[12px] leading-4 text-ink truncate" title={record.notes}>{record.notes}</p>}
+    </li>
+  );
+}
+
+export default function DailyRecordsList({ records, selectedSafra, onEditRecord, onDeleteRecord, canEdit = true, canDelete = true }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSafra, setFilterSafra] = useState(selectedSafra || 'all');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8; // Clean number for quick view at the top of the dashboard
 
-  // Filter and sort records
-  const filteredRecords = useMemo(() => {
+  // Acompanha a safra escolhida no topo
+  useEffect(() => { setFilterSafra(selectedSafra || 'all'); setCurrentPage(1); }, [selectedSafra]);
+
+  const safras = useMemo(() => [...new Set((records || []).map(r => r.safra))].sort().reverse(), [records]);
+
+  const filtered = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
     return (records || []).filter(r => {
-      const matchSafra = filterSafra === 'all' || r.safra === filterSafra;
-      const matchSearch = !searchTerm || 
-        r.date.includes(searchTerm) || 
-        (r.notes && r.notes.toLowerCase().includes(searchTerm.toLowerCase()));
-      return matchSafra && matchSearch;
+      if (filterSafra !== 'all' && r.safra !== filterSafra) return false;
+      if (!term) return true;
+      const br = r.date.split('-').reverse().join('/');
+      return br.includes(term) || r.date.includes(term) || (r.notes || '').toLowerCase().includes(term);
     }).sort((a, b) => b.date.localeCompare(a.date));
   }, [records, filterSafra, searchTerm]);
 
-  const totalPages = Math.ceil(filteredRecords.length / itemsPerPage) || 1;
-  const currentItems = filteredRecords.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-  const getRainBadgeClass = (mm) => {
-    if (mm >= 50) return 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300 border-amber-300 dark:border-amber-500/40';
-    if (mm >= 25) return 'bg-sky-100 text-sky-800 dark:bg-sky-500/20 dark:text-sky-300 border-sky-300 dark:border-sky-500/40';
-    if (mm >= 10) return 'bg-rain-100 text-rain-800 dark:bg-rain-500/20 dark:text-rain-300 border-rain-300 dark:border-rain-500/40';
-    return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-300 dark:border-slate-700';
-  };
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  const page = Math.min(currentPage, totalPages);
+  const items = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+  const sum = filtered.reduce((a, r) => a + r.rain_mm, 0);
 
   return (
-    <div className="glass-panel rounded-2xl p-4 sm:p-6 relative transition-colors">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-        <div>
-          <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <ListFilter className="w-5 h-5 text-rain-600 dark:text-rain-400" />
-            Diário de Lançamentos ({filteredRecords.length})
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Registro cronológico das últimas leituras diárias do pluviômetro
-          </p>
-        </div>
+    <div className="panel panel-pad enter" style={{ '--i': 1 }}>
+      <PanelHeader
+        icon={NotebookPen}
+        title="Diário de leituras"
+        subtitle={
+          <span className="num">
+            {filtered.length.toLocaleString('pt-BR')} {filtered.length === 1 ? 'leitura' : 'leituras'} · {fmt1(sum)} mm no filtro
+          </span>
+        }
+        actions={
+          <>
+            <div className="relative flex-1 sm:flex-none sm:w-56">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted pointer-events-none" />
+              <input
+                type="search"
+                placeholder="Buscar data ou nota"
+                aria-label="Buscar por data ou observação"
+                value={searchTerm}
+                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                className="input input-sm pl-9 pr-8 [&::-webkit-search-cancel-button]:hidden"
+              />
+              {searchTerm && (
+                <button type="button" onClick={() => setSearchTerm('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 btn btn-icon-sm w-7 h-7" aria-label="Limpar busca">
+                  <X />
+                </button>
+              )}
+            </div>
+            <select
+              value={filterSafra}
+              onChange={(e) => { setFilterSafra(e.target.value); setCurrentPage(1); }}
+              aria-label="Filtrar por safra"
+              className="input input-sm w-auto font-semibold"
+            >
+              <option value="all">Todas as safras</option>
+              {safras.map(s => <option key={s} value={s}>Safra {s}</option>)}
+            </select>
+          </>
+        }
+      />
 
-        {/* Barra de busca e filtro */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative flex-1 sm:w-48">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Buscar data ou nota..."
-              value={searchTerm}
-              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-              className="w-full bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-700/80 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-rain-500"
-            />
-          </div>
-
-          <select
-            value={filterSafra}
-            onChange={(e) => { setFilterSafra(e.target.value); setCurrentPage(1); }}
-            className="bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-rain-700 dark:text-rain-300 font-semibold focus:outline-none focus:ring-1 focus:ring-rain-500 cursor-pointer"
-          >
-            <option value="all">Todas as Safras</option>
-            {[...new Set((records || []).map(r => r.safra))].sort().map(s => (
-              <option key={s} value={s}>Safra {s}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Lista de Registros */}
-      {filteredRecords.length === 0 ? (
-        <div className="text-center py-6 text-slate-400 text-xs">
-          Nenhum registro encontrado para os filtros selecionados.
+      {filtered.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-line py-10 text-center">
+          <p className="text-[15px] font-semibold text-ink-strong">Nenhuma leitura encontrada</p>
+          <p className="t-body-small text-ink-muted mt-1">Troque a safra ou limpe a busca para ver mais.</p>
         </div>
       ) : (
-        <div className="space-y-2">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1">
-            {currentItems.map((record) => (
-              <div
-                key={record.id || record.date}
-                className="bg-slate-50/80 dark:bg-slate-950/50 hover:bg-slate-100 dark:hover:bg-slate-800/40 border border-slate-200 dark:border-slate-800 rounded-xl p-3 flex items-center justify-between gap-2.5 transition group"
-              >
-                <div className="min-w-0 flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-rain-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0 text-rain-600 dark:text-rain-400">
-                    <Droplet className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs font-bold text-slate-900 dark:text-white">
-                        {formatDateBR(record.date)}
-                      </span>
-                    </div>
-                    {record.notes ? (
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                        {record.notes}
-                      </p>
-                    ) : (
-                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
-                        Safra {record.safra}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  <span className={`px-2 py-0.5 rounded-lg text-xs font-bold border font-mono ${getRainBadgeClass(record.rain_mm)}`}>
-                    {record.rain_mm.toLocaleString('pt-BR', { minimumFractionDigits: 1 })} mm
-                  </span>
-
-                  {(canEdit || canDelete) && (
-                    <div className="flex items-center opacity-70 group-hover:opacity-100 transition">
-                      {canEdit && (
-                        <button
-                          onClick={() => onEditRecord(record)}
-                          title="Editar registro"
-                          className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded hover:bg-slate-200 dark:hover:bg-slate-700/60"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      {canDelete && (
-                        <button
-                          onClick={() => onDeleteRecord(record)}
-                          title="Excluir registro"
-                          className="p-1 text-slate-400 hover:text-red-500 rounded hover:bg-slate-200 dark:hover:bg-slate-700/60"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
+        <>
+          <ul key={`${filterSafra}-${page}-${searchTerm}`} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+            {items.map((record, i) => (
+              <RecordTile key={record.id || record.date} index={i} record={record} canEdit={canEdit} canDelete={canDelete} onEdit={onEditRecord} onDelete={onDeleteRecord} />
             ))}
-          </div>
+          </ul>
 
-          {/* Paginação */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between pt-2 text-xs text-slate-500 dark:text-slate-400">
-              <span>
-                Página <strong className="text-slate-800 dark:text-white">{currentPage}</strong> de <strong className="text-slate-800 dark:text-white">{totalPages}</strong>
+            <div className="flex items-center justify-between gap-3 pt-4 mt-1">
+              <span className="text-[13px] text-ink-muted num">
+                Página <b className="text-ink-strong">{page}</b> de <b className="text-ink-strong">{totalPages}</b>
               </span>
-
               <div className="flex items-center gap-1.5">
-                <button
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-40 transition"
-                >
-                  <ChevronLeft className="w-4 h-4" />
+                <button type="button" disabled={page === 1} onClick={() => setCurrentPage(page - 1)} className="btn btn-secondary px-3" aria-label="Página anterior">
+                  <ChevronLeft /><span className="hidden sm:inline">Anterior</span>
                 </button>
-                <button
-                  disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-40 transition"
-                >
-                  <ChevronRight className="w-4 h-4" />
+                <button type="button" disabled={page === totalPages} onClick={() => setCurrentPage(page + 1)} className="btn btn-secondary px-3" aria-label="Próxima página">
+                  <span className="hidden sm:inline">Próxima</span><ChevronRight />
                 </button>
               </div>
             </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );
