@@ -205,6 +205,32 @@ try {
       await sleep(1100);
       console.log('links:', await evaluate(`JSON.stringify([...document.querySelectorAll('[role=dialog] a')].map(a => decodeURIComponent(a.href)))`));
       await shot(scene, false);
+    } else if (kind === 'troca') {
+      // Carrossel do login: mede a opacidade dos slides e a altura do painel durante a troca, e a pausa com o mouse
+      const [, theme] = parts;
+      await setViewport(1440, 900, false);
+      await go(APP);
+      await evaluate(`localStorage.clear(); localStorage.setItem('pluviometro_theme_preference','${theme}'); true`);
+      await go(APP);
+      for (let i = 0; i < 40 && !(await evaluate(`Boolean(document.querySelector('#login-email'))`)); i++) await sleep(250);
+      const t0 = Date.now();
+      const probe = `JSON.stringify({ op: [...document.querySelectorAll('[aria-roledescription=carrossel] .grid > div')].map(d => (+getComputedStyle(d).opacity).toFixed(2)), h: Math.round(document.querySelector('[aria-roledescription=carrossel] .grid').getBoundingClientRect().height), sel: [...document.querySelectorAll('[role=tab]')].findIndex(b => b.getAttribute('aria-selected') === 'true') })`;
+      while (Date.now() - t0 < 5600) await sleep(100);
+      let mid = false;
+      while (Date.now() - t0 < 7400) {
+        console.log(`${((Date.now() - t0) / 1000).toFixed(1)}s`, await evaluate(probe));
+        if (!mid && Date.now() - t0 > 6150) { mid = true; await shot(`${scene}-meio`, false); }
+        await sleep(120);
+      }
+      await shot(`${scene}-depois`, false);
+      // Pausa: mouse sobre o painel, a barra não pode andar
+      await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 1100, y: 450 });
+      await sleep(300);
+      const bar = `Math.round(document.querySelector('[role=tab][aria-selected=true] span.block.h-full').getBoundingClientRect().width)`;
+      const b1 = await evaluate(bar); await sleep(1500); const b2 = await evaluate(bar);
+      await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 200, y: 450 });
+      await sleep(1500); const b3 = await evaluate(bar);
+      console.log(`barra com o mouse em cima: ${b1} → ${b2} px; depois de sair: ${b3} px`);
     } else if (kind === 'mensal') {
       // Boletim mensal automático: liga a opção, entra como alimentador e espera o envio
       const [, prof = 'alimentador'] = parts;

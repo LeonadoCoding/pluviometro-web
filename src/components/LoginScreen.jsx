@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Eye, EyeOff, Sun, Moon, ArrowRight, Droplets, CloudRain, FileText } from 'lucide-react';
 import { loginUser } from '../services/auth';
 import { Logo, Waves, Notice, Spinner } from './ui/primitives';
@@ -99,14 +99,18 @@ function SlideArt({ which }) {
 function Showcase() {
   const [i, setI] = useState(0);
   const [paused, setPaused] = useState(false);
+  // Quantas vezes cada slide entrou: trocar a key só do slide que entra refaz as animações do desenho
+  // dele, sem reiniciar o que está saindo
+  const [runs, setRuns] = useState(() => SLIDES.map(() => 1));
+  const [reduced] = useState(() => Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches));
 
-  useEffect(() => {
-    if (paused || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
-    const t = setInterval(() => setI(x => (x + 1) % SLIDES.length), 6000);
-    return () => clearInterval(t);
-  }, [paused]);
+  const goTo = (idx) => {
+    if (idx === i) return;
+    setRuns(r => r.map((n, k) => (k === idx ? n + 1 : n)));
+    setI(idx);
+  };
+  const next = () => goTo((i + 1) % SLIDES.length);
 
-  const s = SLIDES[i];
   return (
     <section
       aria-roledescription="carrossel"
@@ -117,11 +121,23 @@ function Showcase() {
     >
       <Waves full className="absolute top-0 right-0 h-full w-[40%]" />
       <div className="relative max-w-[440px] w-full">
-        <div key={s.key} className="[animation:fade-up_.55s_cubic-bezier(.2,.8,.2,1)_both]">
-          <p className="text-[28px] leading-[34px] xl:text-[32px] xl:leading-[38px] font-bold text-ink-strong tracking-[-0.01em]">
-            {s.title}<span className="text-ink-muted font-semibold">{s.rest}</span>
-          </p>
-          <div className="mt-8"><SlideArt which={s.key} /></div>
+        {/* Os três slides ficam empilhados na mesma célula: a altura não pula e um some enquanto o outro aparece */}
+        <div className="grid">
+          {SLIDES.map((sl, idx) => {
+            const on = idx === i;
+            return (
+              <div
+                key={sl.key}
+                aria-hidden={!on}
+                className={`[grid-area:1/1] transition-[opacity,transform] ease-[cubic-bezier(.2,.8,.2,1)] ${on ? 'opacity-100 translate-y-0 duration-[600ms] delay-150' : 'opacity-0 -translate-y-2 duration-[350ms] pointer-events-none'}`}
+              >
+                <p className="text-[28px] leading-[34px] xl:text-[32px] xl:leading-[38px] font-bold text-ink-strong tracking-[-0.01em]">
+                  {sl.title}<span className="text-ink-muted font-semibold">{sl.rest}</span>
+                </p>
+                <div className="mt-8"><SlideArt key={runs[idx]} which={sl.key} /></div>
+              </div>
+            );
+          })}
         </div>
         <div className="mt-8 flex gap-2" role="tablist" aria-label="Escolher recurso">
           {SLIDES.map((sl, idx) => (
@@ -130,15 +146,19 @@ function Showcase() {
               type="button"
               role="tab"
               aria-selected={idx === i}
-              onClick={() => setI(idx)}
-              className={`group flex-1 text-left rounded-lg px-3 pt-2.5 pb-3 border transition-colors ${idx === i ? 'border-line bg-surface shadow-card' : 'border-transparent hover:bg-surface-control'}`}
+              onClick={() => goTo(idx)}
+              className={`group flex-1 text-left rounded-lg px-3 pt-2.5 pb-3 border transition-[background-color,border-color,box-shadow] duration-300 ${idx === i ? 'border-line bg-surface shadow-card' : 'border-transparent shadow-none hover:bg-surface-control'}`}
             >
-              <span className={`flex items-center gap-1.5 text-[13px] font-semibold ${idx === i ? 'text-ink-strong' : 'text-ink-muted'}`}><sl.icon className="w-4 h-4 text-accent-text" />{sl.tab}</span>
+              <span className={`flex items-center gap-1.5 text-[13px] font-semibold transition-colors duration-300 ${idx === i ? 'text-ink-strong' : 'text-ink-muted'}`}><sl.icon className="w-4 h-4 text-accent-text" />{sl.tab}</span>
               <span className="block mt-2 h-[3px] rounded-full bg-line overflow-hidden">
+                {/* A própria barra é o relógio: ao terminar, passa ao próximo; o mouse em cima congela onde está */}
                 <span
-                  key={`${i}-${paused}`}
+                  key={`${idx}-${runs[idx]}`}
                   className="block h-full bg-accent rounded-full"
-                  style={idx === i ? { animation: paused ? 'none' : 'progress 6s linear both', width: paused ? '100%' : undefined } : { width: idx < i ? '100%' : '0%' }}
+                  onAnimationEnd={idx === i && !reduced ? next : undefined}
+                  style={idx === i
+                    ? (reduced ? { width: '100%' } : { animation: 'progress 6s linear both', animationPlayState: paused ? 'paused' : 'running' })
+                    : { width: idx < i ? '100%' : '0%', transition: 'width .3s ease' }}
                 />
               </span>
             </button>
