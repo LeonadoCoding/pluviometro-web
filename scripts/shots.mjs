@@ -247,6 +247,34 @@ try {
         if (i === 29) console.log('sem aviso de envio; avisos na tela:', toasts || '(nenhum)');
       }
       await shot(scene, false);
+    } else if (kind === 'dia1') {
+      // Envio do dia 1: relógio do navegador em AAAA-MM-DD HH (Bahia). dia1-<data>-<hora>-<login|leitura>
+      // (o servidor de teste precisa subir com MOCK_TODAY igual à data)
+      const [, y, mo, d, hh, acao] = parts;
+      const fake = new Date(`${y}-${mo}-${d}T${hh}:00:00-03:00`).getTime();
+      await cdp('Page.addScriptToEvaluateOnNewDocument', { source: `(() => { const off = ${fake} - Date.now(); const R = Date;
+        class F extends R { constructor(...a) { super(...(a.length ? a : [R.now() + off])); } static now() { return R.now() + off; } }
+        window.Date = F; })();` });
+      await setViewport(1440, 900, false);
+      await setTheme('light');
+      await login(PROFILES.alimentador, 'light');
+      await go(APP);
+      await sleep(3000);
+      if (acao === 'leitura') {
+        await evaluate(`[...document.querySelectorAll('button')].find(b => /Lançar chuva/.test(b.textContent)).click(); true`);
+        await sleep(700);
+        await evaluate(`document.querySelector('#rain-mm').focus(); true`);
+        await cdp('Input.insertText', { text: '7' });
+        await evaluate(`document.querySelector('#rain-date').value`).then(v => console.log('data do lançamento:', v));
+        await evaluate(`document.querySelector('button[form=quick-entry]').click(); true`);
+      }
+      let seen = '';
+      for (let i = 0; i < 20; i++) {
+        await sleep(1000);
+        seen = await evaluate(`[...document.querySelectorAll('[role=status], [role=alert]')].map(t => t.textContent).join(' | ')`);
+        if (/enviado para|não foi enviado/.test(seen)) break;
+      }
+      console.log('avisos:', seen || '(nenhum)');
     } else if (kind === 'probe') {
       const [, theme] = parts;
       await setViewport(1440, 900, false); await setTheme(theme);

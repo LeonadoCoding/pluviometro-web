@@ -132,12 +132,12 @@ export default function App() {
   const periodLabel = (period) => `${MONTHS_SAFRA.find(m => m.key === period.slice(5, 7))?.name.toLowerCase()}/${period.slice(0, 4)}`;
 
   // Fechamento do mês: usa a safra do mês fechado (em outubro, o boletim de setembro é da safra anterior)
-  const runMonthlyReport = async (period) => {
+  const runMonthlyReport = async (period, freshData = null) => {
     const [y, m] = period.split('-').map(Number);
     const lastDay = `${period}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
     const safra = getSafraFromDate(lastDay);
     const original = selectedSafra;
-    let data = dashboardData;
+    let data = freshData || dashboardData;
     if (safra !== original) {
       setSelectedSafra(safra);
       data = await loadData(safra);
@@ -152,27 +152,47 @@ export default function App() {
     }
   };
 
-  // No primeiro acesso de quem lança chuvas a partir do dia 1: envia o boletim do mês que fechou, se pendente
-  const monthlyCheckRef = useRef(false);
-  useEffect(() => {
-    if (!dashboardData || !records.length || !permissions.canLaunchRain || monthlyCheckRef.current) return;
-    monthlyCheckRef.current = true;
-    const period = previousPeriod();
-    const flag = `pluviometro_monthly_${period}`;
+  // Boletim do mês que fechou: só no dia 1 (fuso da Bahia) e só se o mês teve chuva (o servidor confere as duas
+  // coisas e garante um envio por mês). Sai logo depois da primeira leitura gravada no dia 1, que costuma ser a
+  // chuva do último dia do mês; sem leitura, sai a partir das 10h, no acesso de um administrador ou alimentador.
+  const MONTHLY_HOUR = 10;
+  const bahiaNow = () => {
+    const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bahia', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23' }).formatToParts(new Date()).map(x => [x.type, x.value]));
+    return { day: +p.day, hour: +p.hour, date: `${p.year}-${p.month}-${p.day}` };
+  };
+  const monthlyBusyRef = useRef(false);
+  const tryMonthlyReport = async (freshData = null) => {
+    const now = bahiaNow();
+    if (now.day !== 1 || monthlyBusyRef.current || !permissions.canLaunchRain) return;
+    monthlyBusyRef.current = true;
+    const period = previousPeriod(new Date(`${now.date}T12:00:00`));
     try {
-      if (sessionStorage.getItem(flag)) return;
-      sessionStorage.setItem(flag, '1');
-    } catch { /* sem sessionStorage: a função no servidor já impede envio duplicado */ }
-    (async () => {
       const status = await checkMonthlyReport(period);
       if (!status?.due) return;
       toast(`Enviando o boletim de ${periodLabel(period)} aos destinatários…`, 'info');
-      const res = await runMonthlyReport(period);
+      const res = await runMonthlyReport(period, freshData);
       if (res?.ok) toast(`Boletim de ${periodLabel(period)} enviado para ${res.sent} ${res.sent === 1 ? 'destinatário' : 'destinatários'}.`);
-    })().catch(err => {
+    } catch (err) {
       console.warn('Boletim mensal:', err.message);
       if (permissions.canConfigureAlerts) toast(`O boletim de ${periodLabel(period)} não foi enviado: ${err.message}`, 'error');
-    });
+    } finally {
+      monthlyBusyRef.current = false;
+    }
+  };
+  const tryMonthlyRef = useRef(tryMonthlyReport);
+  tryMonthlyRef.current = tryMonthlyReport;
+
+  // Painel aberto no dia 1: tenta já se passou das 10h; antes disso, agenda para as 10h
+  const monthlyArmedRef = useRef(false);
+  useEffect(() => {
+    if (!dashboardData || !records.length || !permissions.canLaunchRain || monthlyArmedRef.current) return;
+    const now = bahiaNow();
+    if (now.day !== 1) return;
+    monthlyArmedRef.current = true;
+    if (now.hour >= MONTHLY_HOUR) { tryMonthlyRef.current(); return; }
+    const target = new Date(`${now.date}T${String(MONTHLY_HOUR).padStart(2, '0')}:00:00-03:00`);
+    const t = setTimeout(() => tryMonthlyRef.current(), Math.max(0, target - Date.now()) + 5000);
+    return () => clearTimeout(t);
   }, [dashboardData, records.length, permissions.canLaunchRain]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSendReportTest = async () => {
@@ -221,7 +241,9 @@ export default function App() {
       throw err;
     }
     toast(`${fmt1(recordData.rain_mm)} mm em ${formatDateBR(recordData.date)} gravados.`);
-    await loadData(selectedSafra);
+    const fresh = await loadData(selectedSafra);
+    // Dia 1: a leitura recém-gravada (normalmente a do último dia do mês) já entra no boletim mensal
+    if (bahiaNow().day === 1) setTimeout(() => tryMonthlyRef.current(fresh), 1200);
   };
 
   const handleDeleteRain = async (record) => {

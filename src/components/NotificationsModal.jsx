@@ -174,7 +174,7 @@ export default function NotificationsModal({ isOpen, onClose, onSendReportTest }
               />
               <div className="mt-3 rounded-md bg-surface border border-line px-3 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                 <p className="text-[12px] leading-[17px] text-ink-muted">
-                  Sai a partir do dia 1, no primeiro acesso de um administrador ou alimentador ao painel. Um envio por mês, mesmo com várias pessoas conectadas.
+                  Sai só no dia 1, e só se o mês anterior teve chuva: logo depois da primeira leitura gravada no dia ou, sem leitura, a partir das 10h, com um administrador ou alimentador no painel. Um envio por mês.
                 </p>
                 {onSendReportTest && (
                   <button

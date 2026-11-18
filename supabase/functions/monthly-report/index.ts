@@ -1,7 +1,7 @@
 // Edge Function: envia o boletim pluviométrico em PDF no fechamento de cada mês (Brevo, com anexo).
 //
 // O PDF é o mesmo do botão "Boletim em PDF": o site o gera (os gráficos vêm da tela) e o envia aqui.
-// No 1º acesso de um administrador ou alimentador a partir do dia 1, o site pergunta se o boletim
+// Só no dia 1 (fuso da Bahia) e só se o mês anterior teve chuva registrada. O site pergunta se o boletim
 // do mês anterior está pendente ({ action: 'check' }) e, se estiver, gera e envia ({ action: 'send' }).
 // Um índice único no banco (monthly-report.sql) garante um único envio por mês.
 //
@@ -124,6 +124,10 @@ Deno.serve(async (req) => {
     // Só o mês que acabou de fechar: nada de reenviar meses antigos
     if (body.period !== period) return json({ due: false, reason: 'period' });
     if (!settings.monthly_report || !settings.recipients?.length) return json({ due: false, reason: 'disabled' });
+    // Só no dia 1 (fuso da Bahia): fora dele, o mês que passou não é mais enviado
+    if (!todayISO().endsWith('-01')) return json({ due: false, reason: 'not_day_one' });
+    // Mês sem chuva registrada não gera boletim
+    if ((await monthTotals(period)).total <= 0) return json({ due: false, reason: 'no_rain' });
     if (await alreadySent(period)) return json({ due: false, reason: 'sent' });
     if (action === 'check') return json({ due: true, period, recipients: settings.recipients.length });
 

@@ -16,7 +16,8 @@ const PORT = Number(process.env.MOCK_PORT || 54321);
 const DATA_DIR = path.resolve(ROOT, process.env.DATA_DIR || '.test-data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 const TEST_PASSWORD = 'teste-oilema-2026';
-const TOKEN_TTL = 3600;
+// Com MOCK_TODAY (data simulada), o token dura 60 dias para não expirar no relógio adiantado do navegador
+const TOKEN_TTL = process.env.MOCK_TODAY ? 60 * 86400 : 3600;
 
 // ---------- banco em arquivo ----------
 function seedDb() {
@@ -227,7 +228,9 @@ const server = http.createServer(async (req, res) => {
     if (p === '/functions/v1/monthly-report') {
       const body = await readBody(req);
       const s = db.notification_settings;
-      const now = new Date();
+      // MOCK_TODAY=AAAA-MM-DD simula outro dia (para testar o envio do dia 1)
+      const today = process.env.MOCK_TODAY || new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bahia' }).format(new Date());
+      const now = new Date(`${today}T12:00:00`);
       const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const period = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}`;
       const outbox = path.join(DATA_DIR, 'outbox');
@@ -237,6 +240,8 @@ const server = http.createServer(async (req, res) => {
         if (!can(user, 'write')) return send(res, 403, { error: 'Sem permissão.' });
         if (body.period !== period) return send(res, 200, { due: false, reason: 'period' });
         if (!s.monthly_report || !s.recipients.length) return send(res, 200, { due: false, reason: 'disabled' });
+        if (!today.endsWith('-01')) return send(res, 200, { due: false, reason: 'not_day_one' });
+        if (!(db.rain_records.filter(r => r.date.startsWith(period)).reduce((a, r) => a + Number(r.rain_mm || 0), 0) > 0)) return send(res, 200, { due: false, reason: 'no_rain' });
         if (db.notification_log.some(l => l.kind === 'monthly' && l.period === period && l.status === 'sent')) return send(res, 200, { due: false, reason: 'sent' });
         if (body.action === 'check') return send(res, 200, { due: true, period, recipients: s.recipients.length });
         if (pdfError()) return send(res, 400, { error: pdfError() });
