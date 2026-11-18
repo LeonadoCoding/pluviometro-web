@@ -89,9 +89,47 @@ export default function RainCalendar({ open, onClose, records = [], historicalMo
   const selDate = sel ? new Date(`${sel.date}T12:00:00`) : null;
   const selStep = sel?.record ? rainStep(sel.record.rain_mm) : null;
 
+  // Grade do mês. No computador as células crescem com a altura da tela (6 semanas cabem sem rolar)
+  const grid = (
+    <div key={key} role="grid" aria-label={`${info?.name} de ${cursor.y}`} className={`mt-1.5 lg:mt-2 grid grid-cols-7 gap-1 sm:gap-1.5 lg:gap-2 ${dir === 'next' ? '[animation:cal-next_.32s_cubic-bezier(.2,.8,.2,1)_both]' : '[animation:cal-prev_.32s_cubic-bezier(.2,.8,.2,1)_both]'}`}>
+      {days.map((c, i) => {
+        if (!c) return <span key={`e${i}`} />;
+        const step = c.record ? rainStep(c.record.rain_mm) : null;
+        const isToday = c.date === today;
+        const isSel = c.date === selected;
+        const label = `${c.d} de ${info?.name}: ${c.record ? `${fmt1(c.record.rain_mm)} mm${step ? `, chuva ${step.label.toLowerCase()}` : ', sem chuva'}` : c.future ? 'ainda não chegou' : 'sem leitura'}`;
+        return (
+          <button
+            key={c.date}
+            type="button"
+            disabled={c.future}
+            onClick={() => setSelected(c.date)}
+            aria-label={label}
+            aria-pressed={isSel}
+            className={`relative h-[52px] sm:h-[56px] lg:h-[clamp(60px,calc((88vh_-_290px)/6),116px)] rounded-md lg:rounded-lg border flex flex-col items-stretch justify-between p-1 sm:p-1.5 lg:p-2 text-left transition-[border-color,background-color,transform,box-shadow] duration-150 [animation:fade-up_.3s_ease_both]
+              ${c.future ? 'border-transparent opacity-40 cursor-default' : 'border-line bg-surface hover:border-[rgba(242,131,34,.6)] hover:-translate-y-px active:scale-[.97]'}
+              ${isSel ? '!border-accent ring-2 ring-[rgba(242,131,34,.28)] shadow-card-hover' : ''}`}
+            style={{ animationDelay: `${Math.min(i, 34) * 9}ms` }}
+          >
+            <span className={`num text-[12px] lg:text-[14px] leading-4 lg:leading-5 font-semibold ${isToday ? 'self-start rounded px-1 -mx-0.5 bg-oilema-petrol text-white' : 'text-ink'}`}>{c.d}</span>
+            {c.record && (step ? (
+              <span className={`num rounded lg:rounded-md text-center text-[11px] sm:text-[12px] lg:text-[15px] leading-4 sm:leading-[18px] lg:leading-7 font-bold ${step.cls}`}>
+                {fmt1(c.record.rain_mm)}<span className="hidden xl:inline text-[11px] font-semibold opacity-80"> mm</span>
+              </span>
+            ) : (
+              <span className="num text-center text-[11px] lg:text-[13px] leading-4 lg:leading-7 font-semibold text-ink-muted">0</span>
+            ))}
+          </button>
+        );
+      })}
+    </div>
+  );
+
   return (
-    <Modal open={open} onClose={onClose} icon={CalendarDays} title="Calendário de chuvas" subtitle="Leituras dia a dia · valores em mm" size="md">
-      <div className="flex items-center justify-between gap-2">
+    <Modal open={open} onClose={onClose} icon={CalendarDays} title="Calendário de chuvas" subtitle="Leituras dia a dia · valores em mm" size="xl">
+      {/* Celular: uma coluna. Computador: calendário à esquerda, painel do mês à direita */}
+      <div className="flex flex-col gap-4 lg:grid lg:gap-x-7 lg:gap-y-4 lg:grid-cols-[minmax(0,1fr)_minmax(15rem,18rem)] lg:[grid-template-areas:'nav_side'_'cal_side'] lg:[grid-template-rows:auto_1fr]">
+      <div className="order-1 lg:[grid-area:nav] flex items-center justify-between gap-2">
         <button type="button" onClick={() => go(-1)} disabled={!canPrev} className="btn btn-icon" aria-label="Mês anterior"><ChevronLeft /></button>
         <div className="text-center min-w-0" aria-live="polite">
           <h3 key={key} className="font-display text-[22px] leading-7 font-bold text-ink-strong uppercase tracking-wide [animation:fade-in_.3s_ease_both]">
@@ -107,7 +145,19 @@ export default function RainCalendar({ open, onClose, records = [], historicalMo
         <button type="button" onClick={() => go(1)} disabled={!canNext} className="btn btn-icon" aria-label="Próximo mês"><ChevronRight /></button>
       </div>
 
-      <div key={`s-${key}`} className="grid grid-cols-3 gap-3 mt-4 rounded-lg border border-line bg-surface-sunken px-4 py-3 [animation:fade-in_.35s_ease_both]">
+      <div className="order-3 lg:order-none lg:[grid-area:cal] min-w-0">
+        <div className="grid grid-cols-7 gap-1 sm:gap-1.5 lg:gap-2" aria-hidden="true">
+          {WEEKDAYS.map((w, i) => (
+            <span key={i} className="text-center text-[11px] lg:text-[12px] leading-4 font-bold text-ink-muted uppercase">
+              <span className="lg:hidden">{w}</span><span className="hidden lg:inline">{WEEKDAYS_FULL[i].slice(0, 3)}</span>
+            </span>
+          ))}
+        </div>
+        {grid}
+      </div>
+
+      <div className="contents lg:flex lg:flex-col lg:gap-4 lg:[grid-area:side] lg:min-w-0">
+      <div key={`s-${key}`} className="order-2 lg:order-none grid grid-cols-3 lg:grid-cols-1 gap-3 lg:gap-4 rounded-lg border border-line bg-surface-sunken px-4 py-3 lg:py-4 [animation:fade-in_.35s_ease_both]">
         <Stat
           label={isCurrentMonth ? 'Até hoje' : 'Total do mês'}
           value={<>{fmt1(total)} <span className="text-[13px] text-accent-text">mm</span></>}
@@ -119,42 +169,7 @@ export default function RainCalendar({ open, onClose, records = [], historicalMo
         <Stat label="Maior chuva" value={peak && peak.record.rain_mm > 0 ? <>{fmt1(peak.record.rain_mm)} <span className="text-[13px] text-accent-text">mm</span></> : '—'} sub={peak && peak.record.rain_mm > 0 ? `dia ${peak.d}` : null} />
       </div>
 
-      <div className="mt-4 grid grid-cols-7 gap-1 sm:gap-1.5" aria-hidden="true">
-        {WEEKDAYS.map((w, i) => <span key={i} className="text-center text-[11px] leading-4 font-bold text-ink-muted">{w}</span>)}
-      </div>
-
-      <div key={key} role="grid" aria-label={`${info?.name} de ${cursor.y}`} className={`mt-1.5 grid grid-cols-7 gap-1 sm:gap-1.5 ${dir === 'next' ? '[animation:cal-next_.32s_cubic-bezier(.2,.8,.2,1)_both]' : '[animation:cal-prev_.32s_cubic-bezier(.2,.8,.2,1)_both]'}`}>
-        {days.map((c, i) => {
-          if (!c) return <span key={`e${i}`} />;
-          const step = c.record ? rainStep(c.record.rain_mm) : null;
-          const isToday = c.date === today;
-          const isSel = c.date === selected;
-          const label = `${c.d} de ${info?.name}: ${c.record ? `${fmt1(c.record.rain_mm)} mm${step ? `, chuva ${step.label.toLowerCase()}` : ', sem chuva'}` : c.future ? 'ainda não chegou' : 'sem leitura'}`;
-          return (
-            <button
-              key={c.date}
-              type="button"
-              disabled={c.future}
-              onClick={() => setSelected(c.date)}
-              aria-label={label}
-              aria-pressed={isSel}
-              className={`relative h-[52px] sm:h-[56px] rounded-md border flex flex-col items-stretch justify-between p-1 sm:p-1.5 text-left transition-[border-color,background-color,transform,box-shadow] duration-150 [animation:fade-up_.3s_ease_both]
-                ${c.future ? 'border-transparent opacity-40 cursor-default' : 'border-line bg-surface hover:border-[rgba(242,131,34,.6)] hover:-translate-y-px active:scale-[.97]'}
-                ${isSel ? '!border-accent ring-2 ring-[rgba(242,131,34,.28)] shadow-card-hover' : ''}`}
-              style={{ animationDelay: `${Math.min(i, 34) * 9}ms` }}
-            >
-              <span className={`num text-[12px] leading-4 font-semibold ${isToday ? 'self-start rounded px-1 -mx-0.5 bg-oilema-petrol text-white' : 'text-ink'}`}>{c.d}</span>
-              {c.record && (step ? (
-                <span className={`num rounded text-center text-[11px] sm:text-[12px] leading-4 sm:leading-[18px] font-bold ${step.cls}`}>{fmt1(c.record.rain_mm)}</span>
-              ) : (
-                <span className="num text-center text-[11px] leading-4 font-semibold text-ink-muted">0</span>
-              ))}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12px] leading-4 text-ink-muted">
+      <div className="order-4 lg:order-none flex flex-wrap lg:flex-col items-center lg:items-start gap-x-3 gap-y-1.5 lg:gap-y-2 lg:px-1 text-[12px] leading-4 text-ink-muted">
         {RAIN_SCALE.map(s => (
           <span key={s.label} className="inline-flex items-center gap-1.5">
             <span className={`w-4 h-3 rounded-sm ${s.cls}`} />{s.label} <span className="num">({s.range})</span>
@@ -162,9 +177,9 @@ export default function RainCalendar({ open, onClose, records = [], historicalMo
         ))}
       </div>
 
-      <div className="mt-4 min-h-[76px]">
+      <div className="order-5 lg:order-none min-h-[76px] lg:mt-auto">
         {sel && (
-          <div key={sel.date} className="rounded-lg border border-line bg-surface-sunken px-4 py-3 flex items-center justify-between gap-3 [animation:drop-in_.22s_ease_both]">
+          <div key={sel.date} className="rounded-lg border border-line bg-surface-sunken px-4 py-3 lg:py-4 flex lg:flex-col items-center lg:items-stretch justify-between gap-3 [animation:drop-in_.22s_ease_both]">
             <div className="min-w-0">
               <p className="text-[13px] leading-[18px] text-ink-muted">
                 <span>{WEEKDAYS_FULL[selDate.getDay()].charAt(0).toUpperCase() + WEEKDAYS_FULL[selDate.getDay()].slice(1)}</span>,{' '}<span className="num">{selDate.getDate()} de {info?.name.toLowerCase()}</span>
@@ -190,6 +205,8 @@ export default function RainCalendar({ open, onClose, records = [], historicalMo
             ))}
           </div>
         )}
+      </div>
+      </div>
       </div>
     </Modal>
   );

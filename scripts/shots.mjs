@@ -175,9 +175,9 @@ try {
       console.log('aviso no modal:', await evaluate(`[...document.querySelectorAll('[role=dialog] .notice-ok, [role=dialog] .notice-error')].map(n => n.textContent).join(' | ') || '(nenhum)'`));
       await shot(scene, false);
     } else if (kind === 'cal') {
-      // Calendário de chuvas: abre, captura, volta um mês e captura de novo
-      const [, theme, w] = parts;
-      await setViewport(+w, +w < 700 ? 844 : 900, +w < 700);
+      // Calendário de chuvas: abre, captura, volta um mês e captura de novo (cal-tema-largura[-altura])
+      const [, theme, w, h] = parts;
+      await setViewport(+w, h ? +h : +w < 700 ? 844 : 900, +w < 700);
       await setTheme(theme);
       await login(PROFILES.admin, theme);
       await go(APP);

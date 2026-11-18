@@ -68,7 +68,9 @@ export default function Modal({
 
   if (!mounted) return null;
 
-  const width = size === 'lg' ? 'sm:max-w-2xl' : size === 'sm' ? 'sm:max-w-sm' : 'sm:max-w-lg';
+  // xl: cresce com a tela no computador (calendário), até 72rem
+  const width = size === 'xl' ? 'sm:max-w-2xl lg:max-w-[min(72rem,calc(100vw_-_4rem))]'
+    : size === 'lg' ? 'sm:max-w-2xl' : size === 'sm' ? 'sm:max-w-sm' : 'sm:max-w-lg';
 
   return createPortal(
     <div
